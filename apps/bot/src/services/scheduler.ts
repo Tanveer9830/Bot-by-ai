@@ -148,6 +148,49 @@ export class SchedulerService {
         }
         return `announced: ${announced}`;
       }
+      case 'poll_close': {
+        // Enqueued by /poll when a duration was given. Discord closes the native
+        // poll itself; this task fetches the final tally and posts the winner.
+        const channelId = String(payload.channelId ?? '');
+        const messageId = String(payload.messageId ?? '');
+        if (!task.guild_id || !channelId || !messageId) return 'skipped: invalid payload';
+        const guild =
+          this.client.guilds.cache.get(task.guild_id) ??
+          (await this.client.guilds.fetch(task.guild_id).catch(() => null));
+        if (!guild) return 'skipped: guild unavailable';
+        const channel = await guild.channels.fetch(channelId).catch(() => null);
+        if (!channel?.isTextBased() || !('messages' in channel))
+          return 'skipped: channel unavailable';
+        const message = await channel.messages.fetch(messageId).catch(() => null);
+        const poll = message?.poll ?? null;
+        if (!poll) return 'skipped: poll not found';
+        const answers = [...poll.answers.values()]
+          .map((answer) => ({
+            text: answer.text ?? `Option ${answer.id + 1}`,
+            votes: answer.voteCount ?? 0,
+          }))
+          .sort((a, b) => b.votes - a.votes);
+        const total = answers.reduce((sum, answer) => sum + answer.votes, 0);
+        const lines = answers.map(
+          (answer, index) =>
+            `${index === 0 ? '🏆' : '▫️'} **${answer.text}** — ${answer.votes} vote(s)`,
+        );
+        const top = answers[0];
+        const tie = answers.filter((answer) => answer.votes === top?.votes).length > 1;
+        await channel
+          .send({
+            content: [
+              `📊 Poll results — **${poll.question.text ?? 'Poll'}** (${total} vote(s))`,
+              ...lines,
+              tie ? '\nIt is a tie — no single winning option.' : '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            allowedMentions: { parse: [] },
+          })
+          .catch(() => {});
+        return `tally: ${answers.length} options, ${total} votes`;
+      }
       case 'retention_cleanup': {
         const days = Number(payload.days ?? 90);
         const removed = await services.repos.audit.pruneOlderThan(days);

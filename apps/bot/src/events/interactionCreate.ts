@@ -254,7 +254,7 @@ async function handleButton(interaction: ButtonInteraction, services: BotService
       await handleSuggestionButton(interaction, services);
       return;
     case INTERACTION_PREFIXES.reactionRole:
-      await handleReactionRole(interaction, services, interaction.customId.split(':')[2] ?? '');
+      await handleReactionRole(interaction, services, [interaction.customId.split(':')[2] ?? '']);
       return;
     case INTERACTION_PREFIXES.help:
       await interaction
@@ -496,60 +496,87 @@ async function handleSuggestionButton(
   }
 }
 
+/**
+ * Toggles one or more roles from a reaction-role button/select.
+ *
+ * - buttons send a single role id and behave as a toggle;
+ * - select menus send every chosen role; each one is toggled, and on an
+ *   `exclusive` panel every other panel role is removed afterwards.
+ */
 async function handleReactionRole(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   services: BotServices,
-  roleId: string,
+  roleIds: readonly string[],
 ): Promise<void> {
   const guild = interaction.guild;
   if (!guild) return;
-  const role = await guild.roles.fetch(roleId).catch(() => null);
-  if (!role) {
-    await interaction.reply({
-      content: 'That role no longer exists.',
-      flags: MessageFlags.Ephemeral,
-    });
+  const requested = [...new Set(roleIds.filter((id) => /^\d{17,20}$/.test(id)))];
+  if (requested.length === 0) {
+    await interaction
+      .reply({
+        content: 'That selection does not map to a role any more.',
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
     return;
   }
+
   const me = guild.members.me;
-  if (me && role.position >= me.roles.highest.position) {
-    await interaction.reply({
-      content: 'I cannot manage that role because it is higher than my highest role.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) return;
-  const has = member.roles.cache.has(role.id);
-  try {
-    if (has) {
-      await member.roles.remove(role, 'Reaction role removed');
-    } else {
-      await member.roles.add(role, 'Reaction role granted');
-      if (interaction.isStringSelectMenu()) {
-        const panel = await services.repos.community.findReactionRolePanelByMessage(
-          interaction.message.id,
-        );
-        if (panel?.exclusive) {
-          const options = panel.options as { roleId: string }[];
-          for (const option of options) {
-            if (option.roleId !== role.id && member.roles.cache.has(option.roleId)) {
-              await member.roles
-                .remove(option.roleId, 'Exclusive reaction role swap')
-                .catch(() => {});
-            }
-          }
-        }
+
+  const added: string[] = [];
+  const removed: string[] = [];
+  const skipped: string[] = [];
+
+  for (const roleId of requested) {
+    const role = await guild.roles.fetch(roleId).catch(() => null);
+    if (!role || (me && role.position >= me.roles.highest.position)) {
+      skipped.push(roleId);
+      continue;
+    }
+    try {
+      if (member.roles.cache.has(role.id)) {
+        await member.roles.remove(role, 'Reaction role removed');
+        removed.push(role.id);
+      } else {
+        await member.roles.add(role, 'Reaction role granted');
+        added.push(role.id);
+      }
+    } catch {
+      skipped.push(role.id);
+    }
+  }
+
+  // Exclusive panels: only one role from the panel may be held at a time.
+  if (interaction.isStringSelectMenu() && added.length > 0) {
+    const panel = await services.repos.community
+      .findReactionRolePanelByMessage(interaction.message.id)
+      .catch(() => null);
+    if (panel?.exclusive) {
+      const options = (panel.options ?? []) as { roleId: string }[];
+      for (const option of options) {
+        if (requested.includes(option.roleId)) continue;
+        if (!member.roles.cache.has(option.roleId)) continue;
+        await member.roles.remove(option.roleId, 'Exclusive reaction role swap').catch(() => {});
       }
     }
-    await interaction.reply({
-      content: has ? `Removed <@&${role.id}>.` : `Added <@&${role.id}>.`,
-      flags: MessageFlags.Ephemeral,
-    });
-  } catch (error) {
-    await replyWithError(interaction as unknown as ChatInputCommandInteraction, error, services);
   }
+
+  const lines = [
+    added.length > 0 ? `Added ${added.map((id) => `<@&${id}>`).join(', ')}` : null,
+    removed.length > 0 ? `Removed ${removed.map((id) => `<@&${id}>`).join(', ')}` : null,
+    skipped.length > 0
+      ? `Skipped ${skipped.length} role(s) I cannot manage (they are above my highest role).`
+      : null,
+  ].filter(Boolean);
+
+  await interaction
+    .reply({
+      content: lines.join('\n') || 'Nothing changed.',
+      flags: MessageFlags.Ephemeral,
+    })
+    .catch(() => {});
 }
 
 async function handleVerification(
@@ -585,9 +612,11 @@ async function handleSelect(
   interaction: StringSelectMenuInteraction,
   services: BotServices,
 ): Promise<void> {
-  const [prefix, , roleId] = interaction.customId.split(':');
-  if (prefix === INTERACTION_PREFIXES.reactionRole) {
-    await handleReactionRole(interaction, services, roleId ?? interaction.values[0] ?? '');
+  const [prefix, kind] = interaction.customId.split(':');
+  if (prefix === INTERACTION_PREFIXES.reactionRole && kind === 'select') {
+    // The third segment is the *panel key* — the roles the member picked are in
+    // `values`. Passing the panel key here used to hand the handler a bogus role id.
+    await handleReactionRole(interaction, services, interaction.values);
     return;
   }
   await interaction

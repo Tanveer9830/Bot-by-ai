@@ -259,28 +259,35 @@ export class ModerationRepository {
     return rows as never;
   }
 
+  /**
+   * Reviews an appeal and returns the case it belongs to (so callers can lift a
+   * ban or notify the member) or null when the appeal was already reviewed.
+   */
   async reviewAppeal(input: {
     guildId: string;
     appealId: number;
     reviewerId: string;
     decision: 'approved' | 'denied';
     note?: string;
-  }): Promise<boolean> {
+  }): Promise<{ caseId: number; caseNumber: number; userId: string; action: string } | null> {
     return this.db.transaction(async (client) => {
-      const { rows } = await client.query<{ case_id: number | null }>(
+      const { rows } = await client.query<{ case_id: number | null; user_id: string }>(
         `UPDATE moderation_appeals
             SET status = $3, reviewed_by = $4, reviewed_at = now(), review_note = $5
           WHERE id = $1 AND guild_id = $2 AND status = 'pending'
-          RETURNING case_id`,
+          RETURNING case_id, user_id`,
         [input.appealId, input.guildId, input.decision, input.reviewerId, input.note ?? null],
       );
-      const caseId = rows[0]?.case_id;
-      if (caseId === null || caseId === undefined) return false;
-      await client.query(
-        `UPDATE moderation_cases SET appeal_status = $2, updated_at = now() WHERE id = $1`,
-        [caseId, input.decision === 'approved' ? 'approved' : 'denied'],
+      const appeal = rows[0];
+      if (!appeal?.case_id) return null;
+      const { rows: caseRows } = await client.query<{ case_number: number; action: string }>(
+        `UPDATE moderation_cases SET appeal_status = $2, updated_at = now() WHERE id = $1
+         RETURNING case_number, action`,
+        [appeal.case_id, input.decision === 'approved' ? 'approved' : 'denied'],
       );
-      return true;
+      const record = caseRows[0];
+      if (!record) return null;
+      return { caseId: appeal.case_id, caseNumber: record.case_number, userId: appeal.user_id, action: record.action };
     });
   }
 }

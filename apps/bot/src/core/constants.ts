@@ -71,6 +71,28 @@ export interface FeatureFlags {
  * Kept in sync with packages/shared/src/validation/template.ts — the renderer
  * only substitutes these, everything else is left untouched.
  */
+/**
+ * Log routing categories. Kept in sync with loggingSettingsSchema.channels in
+ * packages/shared — every key here can be routed to its own channel.
+ */
+export const LOG_CATEGORIES = [
+  'moderation',
+  'messages',
+  'members',
+  'roles',
+  'channels',
+  'voice',
+  'security',
+  'economy',
+  'tickets',
+  'automod',
+  'giveaways',
+  'errors',
+  'audit',
+] as const;
+
+export type LogCategory = (typeof LOG_CATEGORIES)[number];
+
 export const WELCOME_VARIABLES: { name: string; description: string }[] = [
   { name: '{user}', description: 'Username of the member' },
   { name: '{usermention}', description: 'Mentions the member' },

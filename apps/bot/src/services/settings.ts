@@ -49,12 +49,17 @@ export class GuildSettingsService {
     return this.load(guildId);
   }
 
-  /** Typed accessor: `settings.get<AutomodSettings>(guildId, 'automod')`. */
-  async get<T>(guildId: string, module: ModuleName): Promise<T> {
+  /**
+   * Typed accessor: `settings.get<AutomodSettings>(guildId, 'automod')`.
+   * `fallback` fills in fields of modules the guild row predates.
+   */
+  async get<T>(guildId: string, module: ModuleName, fallback?: Partial<T>): Promise<T> {
     try {
       const values = await this.load(guildId);
       const stored = values[module];
-      if (stored) return stored as T;
+      if (stored) {
+        return (fallback ? { ...(moduleDefaults(module) as object), ...(fallback as object), ...stored } : stored) as T;
+      }
     } catch (error) {
       this.logger.error('failed to read guild settings, using defaults', {
         guildId,
@@ -62,7 +67,7 @@ export class GuildSettingsService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    return moduleDefaults(module) as unknown as T;
+    return { ...(moduleDefaults(module) as object), ...((fallback ?? {}) as object) } as unknown as T;
   }
 
   /**

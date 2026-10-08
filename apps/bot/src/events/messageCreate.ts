@@ -1,5 +1,5 @@
 import { ChannelType, Events, type Client, type GuildMember, type Message } from 'discord.js';
-import { evaluateNoTag, extractUserMentions, formatDuration, renderTemplate } from '@bot-by-ai/shared';
+import { evaluateNoTag, extractUserMentions, formatDuration, renderTemplate, type CustomCommandInput } from '@bot-by-ai/shared';
 import type { BotServices } from '../core/context.js';
 import type { GeneralSettings, NoTagSettings } from '../services/types.js';
 
@@ -162,26 +162,6 @@ async function handleNoTag(message: Message<true>, member: GuildMember, services
   }
 }
 
-interface CustomCommandPayload {
-  name: string;
-  description: string;
-  response?: string;
-  embed?: {
-    title?: string | null;
-    description?: string | null;
-    color?: number | null;
-    footer?: string | null;
-    fields?: { name: string; value: string; inline?: boolean }[];
-  } | null;
-  actions?: { type: string; roleId?: string; message?: string }[];
-  ephemeral?: boolean;
-  requiredRoleIds?: string[];
-  allowedChannelIds?: string[];
-  allowedUserIds?: string[];
-  cooldownSeconds?: number;
-  deleteTrigger?: boolean;
-}
-
 const customCommandCooldowns = new Map<string, number>();
 
 async function handleCustomCommand(message: Message<true>, member: GuildMember, services: BotServices): Promise<void> {
@@ -196,7 +176,7 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
   const command = await services.repos.customCommands.getGuild(message.guild.id, name).catch(() => null);
   if (!command || !command.enabled) return;
 
-  const payload = command.payload as unknown as CustomCommandPayload;
+  const payload = command.payload as unknown as CustomCommandInput;
   if (settings.disabledCommandNames.includes(name)) return;
   if (payload.allowedChannelIds?.length && !payload.allowedChannelIds.includes(message.channelId)) return;
   if (payload.allowedUserIds?.length && !payload.allowedUserIds.includes(member.id)) return;
@@ -251,11 +231,10 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
       }
     : undefined;
 
-  const files: string[] = [];
   await message
     .reply({
       content: rendered.output || undefined,
-      embeds: embed ? [embed] : [],
+      embeds: embed ? [embed] : undefined,
       allowedMentions: { parse: [], repliedUser: false },
     })
     .catch(() => {});
@@ -281,5 +260,4 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
     if (permissions?.has('ManageMessages')) await message.delete().catch(() => {});
   }
   await services.repos.customCommands.incrementUses(command.id).catch(() => {});
-  void files;
 }

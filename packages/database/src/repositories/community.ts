@@ -115,6 +115,15 @@ export class CommunityRepository {
     return (rowCount ?? 0) > 0;
   }
 
+  /** Replaces the winner list of an already-ended giveaway (used by /giveaway reroll). */
+  async rerollGiveaway(id: number, winnerIds: string[]): Promise<boolean> {
+    const { rowCount } = await this.db.query(
+      `UPDATE giveaways SET winner_ids = $2::text[] WHERE id = $1 AND ended = TRUE AND cancelled = FALSE`,
+      [id, winnerIds],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
   async cancelGiveaway(id: number): Promise<boolean> {
     const { rowCount } = await this.db.query(
       `UPDATE giveaways SET cancelled = TRUE, ended = TRUE, ended_at = now()
@@ -311,11 +320,20 @@ export class CommunityRepository {
   }
 
   async listReactionRolePanels(guildId: string): Promise<
-    { id: number; panel_key: string; channel_id: string; message_id: string | null; mode: string; enabled: boolean }[]
+    {
+      id: number;
+      panel_key: string;
+      channel_id: string;
+      message_id: string | null;
+      mode: string;
+      enabled: boolean;
+      exclusive: boolean;
+      options: unknown;
+    }[]
   > {
     const { rows } = await this.db.query(
-      `SELECT id, panel_key, channel_id, message_id, mode, enabled FROM reaction_role_panels
-        WHERE guild_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, panel_key, channel_id, message_id, mode, enabled, exclusive, options
+         FROM reaction_role_panels WHERE guild_id = $1 ORDER BY created_at DESC`,
       [guildId],
     );
     return rows as never;

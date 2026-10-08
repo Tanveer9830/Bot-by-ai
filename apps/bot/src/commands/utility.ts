@@ -5,189 +5,129 @@ import {
   MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
-  StringSelectMenuBuilder,
-  ActionRowBuilder,
   type ChatInputCommandInteraction,
   type Guild,
+  type Role,
   type TextChannel,
 } from 'discord.js';
 import {
   formatBytes,
   formatDuration,
+  formatNumber,
+  formatRelativeTimestamp,
   formatTimestamp,
   parseDurationMs,
-  renderTemplate,
+  snowflakeToTimestamp,
   truncate,
   UserFacingError,
 } from '@bot-by-ai/shared';
-import { CATEGORIES, COLORS, RECOMMENDED_PERMISSIONS_INTEGER } from '../core/constants.js';
+import { CATEGORIES, COLORS, RECOMMENDED_PERMISSIONS_INTEGER, REQUIRED_BOT_PERMISSIONS } from '../core/constants.js';
+import { safeEvaluateMath } from '../core/calc.js';
 import { defineCommands, type BotCommand, type CommandContext } from '../core/command.js';
-import { baseEmbed, infoEmbed, keyValue, successEmbed, warningEmbed } from '../core/embeds.js';
+import { baseEmbed, infoEmbed, keyValue, successEmbed } from '../core/embeds.js';
 import { requireUserPermissions } from '../core/resolvers.js';
+import { sendPaginated } from '../core/ui.js';
 
 function guildOf(interaction: ChatInputCommandInteraction): Guild {
   if (!interaction.guild) throw new UserFacingError('This command only works inside a server.');
   return interaction.guild;
 }
 
-async function runCalculator(expression: string): Promise<number> {
-  // Strict whitelist evaluator: digits, operators, parentheses and a few
-  // functions. No `eval`, no Function constructor, no identifiers.
-  const sanitized = expression.replace(/\s+/g, '');
-  if (!/^[-+*/%().\d]+$/.test(sanitized)) {
-    throw new UserFacingError('Only numbers and the operators + - * / % ( ) are supported.');
-  }
-  if (sanitized.length > 120) throw new UserFacingError('That expression is too long.');
-  const tokens = sanitized.match(/\d+\.?\d*|[-+*/%()]/g);
-  if (!tokens) throw new UserFacingError('That expression could not be parsed.');
-  let index = 0;
-
-  const parseExpression = (): number => {
-    let value = parseTerm();
-    while (tokens[index] === '+' || tokens[index] === '-') {
-      const operator = tokens[index];
-      index += 1;
-      const right = parseTerm();
-      value = operator === '+' ? value + right : value - right;
-    }
-    return value;
-  };
-  const parseTerm = (): number => {
-    let value = parseFactor();
-    while (tokens[index] === '*' || tokens[index] === '/' || tokens[index] === '%') {
-      const operator = tokens[index];
-      index += 1;
-      const right = parseFactor();
-      if ((operator === '/' || operator === '%') && right === 0) throw new UserFacingError('Division by zero.');
-      value = operator === '*' ? value * right : operator === '/' ? value / right : value % right;
-    }
-    return value;
-  };
-  const parseFactor = (): number => {
-    const token = tokens[index];
-    if (token === '-') {
-      index += 1;
-      return -parseFactor();
-    }
-    if (token === '(') {
-      index += 1;
-      const value = parseExpression();
-      if (tokens[index] !== ')') throw new UserFacingError('Unbalanced parentheses.');
-      index += 1;
-      return value;
-    }
-    if (!token || Number.isNaN(Number(token))) throw new UserFacingError('Unexpected token in expression.');
-    index += 1;
-    return Number(token);
-  };
-
-  const result = parseExpression();
-  if (index !== tokens.length) throw new UserFacingError('Unexpected trailing tokens in expression.');
-  if (!Number.isFinite(result)) throw new UserFacingError('The result is not a finite number.');
-  return result;
+function memberOf(interaction: ChatInputCommandInteraction): GuildMember {
+  const member = interaction.member;
+  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  return member;
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  utility: '🧰 Utility',
+  moderation: '🛡️ Moderation',
+  security: '🚨 Security',
+  automod: '🤖 AutoMod',
+  economy: '💰 Economy',
+  levels: '📈 Levels',
+  tickets: '🎫 Tickets',
+  community: '🎉 Community',
+  music: '🎵 Music',
+  configuration: '⚙️ Configuration',
+  owner: '👑 Owner',
+};
 
 export const commands: BotCommand[] = defineCommands([
   {
     category: 'utility',
-    data: new SlashCommandBuilder().setName('help').setDescription('List every command, grouped by category'),
+    data: new SlashCommandBuilder()
+      .setName('help')
+      .setDescription('List every command or get help for one command')
+      .addStringOption((option) => option.setName('command').setDescription('Command name').setAutocomplete(true))
+      .addStringOption((option) => option.setName('category').setDescription('Filter by category').setAutocomplete(true)),
+    autocomplete: async ({ interaction, services }) => {
+      const focused = interaction.options.getFocused(true);
+      const catalog = services.commandCatalog();
+      if (focused.name === 'category') {
+        await interaction.respond(
+          CATEGORIES.filter((category) => category.includes(focused.value.toLowerCase()))
+            .slice(0, 25)
+            .map((category) => ({ name: category, value: category })),
+        );
+        return;
+      }
+      await interaction.respond(
+        catalog
+          .filter((entry) => entry.name.includes(focused.value.toLowerCase()))
+          .slice(0, 25)
+          .map((entry) => ({ name: `/${entry.name} — ${entry.category}`, value: entry.name })),
+      );
+    },
     async execute({ interaction, services }: CommandContext) {
+      const name = interaction.options.getString('command');
+      const category = interaction.options.getString('category');
+      const catalog = services.commandCatalog();
+
+      if (name) {
+        const entry = catalog.find((item) => item.name === name.toLowerCase().replace(/^\//, ''));
+        if (!entry) throw new UserFacingError(`I do not have a command called \`${name}\`.`);
+        const embed = infoEmbed(`/${entry.name}`).addFields(
+          { name: 'Category', value: entry.category, inline: true },
+          { name: 'Owner only', value: entry.ownerOnly ? 'yes' : 'no', inline: true },
+        );
+        await interaction.reply({ embeds: [keyValue([{ key: 'Description', value: entry.description, inline: false }], embed)], flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const filtered = category ? catalog.filter((entry) => entry.category === category.toLowerCase()) : catalog;
+      if (filtered.length === 0) throw new UserFacingError('No commands matched that filter.');
+      const byCategory = new Map<string, string[]>();
+      for (const entry of filtered) {
+        const list = byCategory.get(entry.category) ?? [];
+        list.push(`**/${entry.name}** — ${entry.description}`);
+        byCategory.set(entry.category, list);
+      }
+      const sections = [...byCategory.entries()].map(([key, lines]) => ({ title: CATEGORY_LABELS[key] ?? key, lines }));
       await interaction.deferReply();
-      const registry = services.client;
-      void registry;
-      const all = services.commandCatalog?.() ?? [];
-      const grouped = new Map<string, string[]>();
-      for (const entry of all) {
-        const list = grouped.get(entry.category) ?? [];
-        list.push(`\`/${entry.name}\``);
-        grouped.set(entry.category, list);
-      }
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle('📖 Command reference')
-        .setDescription(
-          `I currently expose **${all.length}** top-level slash commands across **${grouped.size}** categories.\nUse \`/help\` again after updates, or open the dashboard for searchable docs.`,
-        )
-        .setFooter({ text: 'Every command listed here is implemented — no placeholders.' });
-      for (const category of CATEGORIES) {
-        const names = grouped.get(category);
-        if (!names || names.length === 0) continue;
-        embed.addFields({ name: category, value: truncate(names.join(' '), 1024) });
-      }
-      await interaction.editReply({ embeds: [embed] });
+      await sendPaginated(
+        interaction,
+        sections,
+        (section) => section.lines.join('\n').slice(0, 4000),
+        { pageSize: 1, title: `📖 Commands (${filtered.length} total)` },
+      );
     },
   },
   {
     category: 'utility',
-    data: new SlashCommandBuilder().setName('ping').setDescription('Check the bot latency and gateway health'),
+    data: new SlashCommandBuilder().setName('ping').setDescription('Check latency and API round-trip time'),
     async execute({ interaction, services }: CommandContext) {
       const started = Date.now();
       await interaction.deferReply();
       const roundTrip = Date.now() - started;
-      const embed = baseEmbed(COLORS.success)
-        .setTitle('🏓 Pong')
-        .addFields(
-          { name: 'Round trip', value: `${roundTrip} ms`, inline: true },
-          { name: 'Gateway', value: `${Math.round(services.client.ws.ping)} ms`, inline: true },
-          { name: 'Shard', value: String(services.client.shard?.ids?.[0] ?? 0), inline: true },
-        );
-      await interaction.editReply({ embeds: [embed] });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder().setName('botinfo').setDescription('Show information about this bot'),
-    async execute({ interaction, services }: CommandContext) {
-      const snapshot = await services.status.snapshot();
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle(`🤖 ${services.client.user?.tag ?? 'Bot'}`)
-        .setThumbnail(services.client.user?.displayAvatarURL() ?? null)
-        .setDescription('A modular Discord bot with moderation, security, economy, leveling, tickets and music.');
-      keyValue(
-        [
-          { key: 'Servers', value: snapshot.guildCount.toLocaleString() },
-          { key: 'Users (cached)', value: snapshot.userCount.toLocaleString() },
-          { key: 'Uptime', value: formatDuration(snapshot.uptimeSeconds * 1000) },
-          { key: 'Node.js', value: snapshot.nodeVersion },
-          { key: 'Commands', value: String(services.commandCatalog?.().length ?? 0) },
-          { key: 'Music', value: services.features.music ? 'enabled' : 'disabled' },
-        ],
-        embed,
-      );
-      await interaction.reply({ embeds: [embed] });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder().setName('status').setDescription('Runtime status: latency, uptime, database'),
-    async execute({ interaction, services }: CommandContext) {
-      await interaction.deferReply();
-      const snapshot = await services.status.snapshot();
-      const embed = baseEmbed(snapshot.database.ok ? COLORS.success : COLORS.danger)
-        .setTitle('🩺 Runtime status')
-        .setDescription(services.status.humanSummary(snapshot))
-        .addFields(
-          { name: 'Memory (RSS)', value: formatBytes(snapshot.memoryUsedMb * 1_048_576), inline: true },
-          { name: 'CPU', value: `${snapshot.cpuLoadPercent}%`, inline: true },
-          {
-            name: 'Limits',
-            value: snapshot.memoryLimitMb ? formatBytes(snapshot.memoryLimitMb * 1_048_576) : 'unavailable',
-            inline: true,
-          },
-        );
-      await interaction.editReply({ embeds: [embed] });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder().setName('uptime').setDescription('Show how long the bot has been online'),
-    async execute({ interaction, services }: CommandContext) {
-      const snapshot = await services.status.snapshot();
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [
           baseEmbed(COLORS.success)
-            .setTitle('⏱️ Uptime')
-            .setDescription(
-              `Online for **${formatDuration(snapshot.uptimeSeconds * 1000)}**\nProcess started ${formatTimestamp(Date.now() - snapshot.uptimeSeconds * 1000)}`,
+            .setTitle('🏓 Pong')
+            .addFields(
+              { name: 'WebSocket', value: `${Math.round(services.client.ws.ping)} ms`, inline: true },
+              { name: 'Round trip', value: `${roundTrip} ms`, inline: true },
+              { name: 'Uptime', value: formatDuration(Date.now() - interaction.client.readyTimestamp!), inline: true },
             ),
         ],
       });
@@ -195,17 +135,56 @@ export const commands: BotCommand[] = defineCommands([
   },
   {
     category: 'utility',
-    data: new SlashCommandBuilder().setName('invite').setDescription('Get the invite link and required permissions'),
+    data: new SlashCommandBuilder().setName('botinfo').setDescription('Information about the bot and this deployment'),
+    async execute({ interaction, services }: CommandContext) {
+      const client = services.client;
+      const memory = process.memoryUsage();
+      await interaction.reply({
+        embeds: [
+          baseEmbed(COLORS.primary)
+            .setTitle(`🤖 ${client.user?.username ?? 'Bot'} information`)
+            .setThumbnail(client.user?.displayAvatarURL() ?? null)
+            .addFields(
+              { name: 'Guilds', value: formatNumber(client.guilds.cache.size), inline: true },
+              { name: 'Users (cached)', value: formatNumber(client.users.cache.size), inline: true },
+              { name: 'Commands', value: formatNumber(services.commandCatalog().length), inline: true },
+              { name: 'Uptime', value: formatDuration(Date.now() - (client.readyTimestamp ?? client.readyAt?.getTime() ?? Date.now())), inline: true },
+              { name: 'Memory (RSS)', value: formatBytes(memory.rss), inline: true },
+              { name: 'discord.js', value: `v${(await import('discord.js')).version}`, inline: true },
+              { name: 'Version', value: services.version, inline: true },
+              { name: 'Lavalink', value: services.features.music ? 'configured' : 'not configured', inline: true },
+              { name: 'Dashboard', value: services.features.dashboard ? 'enabled' : 'disabled', inline: true },
+              { name: 'Redis cache', value: services.features.redis ? 'enabled' : 'disabled', inline: true },
+            ),
+        ],
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('uptime').setDescription('Show how long the bot process has been running'),
+    async execute({ interaction, services }: CommandContext) {
+      const uptimeMs = Date.now() - services.startedAt;
+      await interaction.reply({
+        embeds: [baseEmbed(COLORS.success).setTitle('⏱️ Process uptime').setDescription(`Running for **${formatDuration(uptimeMs)}**\nStarted <t:${Math.floor(services.startedAt / 1000)}:R>`)],
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('invite').setDescription('Get the invite link with the required permissions'),
     async execute({ interaction, services }: CommandContext) {
       const clientId = services.client.user?.id;
+      if (!clientId) throw new UserFacingError('The bot is not ready yet — try again in a moment.');
       const permissions = RECOMMENDED_PERMISSIONS_INTEGER.toString();
       const url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands`;
       await interaction.reply({
         embeds: [
           baseEmbed(COLORS.primary)
-            .setTitle('➕ Invite this bot')
-            .setDescription(`[Add me to your server](${url})\n\nThe invite requests exactly the permissions the feature set needs (moderation, logging, tickets, roles). You can review each permission with \`/permissions\`.`),
+            .setTitle('➕ Invite me')
+            .setDescription(`[Click here to invite me](${url})\n\nThe link requests only the permissions the bot actually uses; you can revoke any of them later in server settings.`),
         ],
+        flags: MessageFlags.Ephemeral,
       });
     },
   },
@@ -213,51 +192,34 @@ export const commands: BotCommand[] = defineCommands([
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('userinfo')
-      .setDescription('Show detailed information about a user')
-      .addUserOption((option) => option.setName('user').setDescription('User to inspect (defaults to you)')),
+      .setDescription('Show account and member information for a user')
+      .addUserOption((option) => option.setName('user').setDescription('User (defaults to you)'))
+      .addBooleanOption((option) => option.setName('ephemeral').setDescription('Only show the result to you')),
     async execute({ interaction, services }: CommandContext) {
-      const target = interaction.options.getUser('user') ?? interaction.user;
-      const member = interaction.guild
-        ? await interaction.guild.members.fetch(target.id).catch(() => null)
-        : null;
-      const profile = await services.repos.users.upsertUser({
-        id: target.id,
-        username: target.username,
-        globalName: target.globalName,
-        discriminator: target.discriminator,
-        avatar: target.avatar,
-        isBot: target.bot,
-      });
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle(`${target.username}`)
-        .setThumbnail(target.displayAvatarURL({ size: 256 }))
+      const guild = guildOf(interaction);
+      const user = interaction.options.getUser('user') ?? interaction.user;
+      const member = await guild.members.fetch(user.id).catch(() => null);
+      const embed = baseEmbed(member?.displayColor || COLORS.primary)
+        .setTitle(`👤 ${user.tag}`)
+        .setThumbnail(user.displayAvatarURL({ size: 256 }))
         .addFields(
-          { name: 'ID', value: `\`${target.id}\``, inline: true },
-          { name: 'Bot', value: target.bot ? 'yes' : 'no', inline: true },
-          { name: 'Account created', value: `${formatTimestamp(target.createdTimestamp)} (${formatTimestamp(target.createdTimestamp)})`, inline: true },
+          { name: 'ID', value: `\`${user.id}\``, inline: true },
+          { name: 'Bot', value: user.bot ? 'yes' : 'no', inline: true },
+          { name: 'Created', value: formatTimestamp(user.createdTimestamp), inline: true },
         );
       if (member) {
         embed.addFields(
-          { name: 'Joined server', value: member.joinedTimestamp ? formatTimestamp(member.joinedTimestamp) : 'unknown', inline: true },
-          { name: 'Nickname', value: member.nickname ?? 'none', inline: true },
-          {
-            name: `Roles (${member.roles.cache.size - 1})`,
-            value: truncate(
-              member.roles.cache
-                .filter((role) => role.id !== interaction.guildId)
-                .sort((a, b) => b.position - a.position)
-                .map((role) => `${role}`)
-                .join(' ') || 'none',
-              1024,
-            ),
-          },
+          { name: 'Joined', value: formatTimestamp(member.joinedTimestamp ?? Date.now()), inline: true },
+          { name: 'Nickname', value: member.nickname ? truncate(member.nickname, 100) : 'none', inline: true },
+          { name: 'Highest role', value: `<@&${member.roles.highest.id}>`, inline: true },
+          { name: 'Roles', value: truncate(member.roles.cache.filter((role) => role.id !== guild.id).map((role) => `<@&${role.id}>`).join(', ') || 'none', 1000) },
+          { name: 'Boosting', value: member.premiumSince ? `since ${formatTimestamp(member.premiumSinceTimestamp ?? Date.now())}` : 'no', inline: true },
+          { name: 'Timeout until', value: member.communicationDisabledUntilTimestamp ? formatTimestamp(member.communicationDisabledUntilTimestamp) : 'not timed out', inline: true },
         );
-        if (member.premiumSinceTimestamp) {
-          embed.addFields({ name: 'Boosting since', value: formatTimestamp(member.premiumSinceTimestamp), inline: true });
-        }
       }
-      embed.setFooter({ text: `First tracked by this bot: ${profile.created_at.toISOString().slice(0, 10)}` });
-      await interaction.reply({ embeds: [embed] });
+      const account = await services.repos.users.getUser(user.id).catch(() => null);
+      if (account) embed.setFooter({ text: `Stored locally since ${formatTimestamp(account.created_at.getTime())}` });
+      await interaction.reply({ embeds: [embed], flags: interaction.options.getBoolean('ephemeral') ? MessageFlags.Ephemeral : undefined });
     },
   },
   {
@@ -265,61 +227,40 @@ export const commands: BotCommand[] = defineCommands([
     data: new SlashCommandBuilder().setName('serverinfo').setDescription('Show information about this server'),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
-      await guild.fetch().catch(() => null);
       const owner = await guild.fetchOwner().catch(() => null);
-      const settings = await services.settings.getAll(guild.id).catch(() => ({}));
-      const enabledModules = Object.entries(settings)
-        .filter(([, values]) => (values as { enabled?: boolean }).enabled === true)
-        .map(([name]) => name);
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle(`🏠 ${guild.name}`)
-        .setThumbnail(guild.iconURL({ size: 256 }) ?? null)
-        .addFields(
-          { name: 'Owner', value: owner ? `<@${owner.id}>` : 'unknown', inline: true },
-          { name: 'Members', value: guild.memberCount.toLocaleString(), inline: true },
-          { name: 'Created', value: formatTimestamp(guild.createdTimestamp), inline: true },
-          { name: 'Channels', value: String(guild.channels.cache.size), inline: true },
-          { name: 'Roles', value: String(guild.roles.cache.size), inline: true },
-          { name: 'Boost tier', value: String(guild.premiumTier), inline: true },
-          {
-            name: 'Enabled modules',
-            value: enabledModules.length > 0 ? truncate(enabledModules.join(', '), 1024) : 'none configured yet',
-          },
-        );
-      if (guild.bannerURL()) embed.setImage(guild.bannerURL({ size: 1024 }));
-      await interaction.reply({ embeds: [embed] });
+      const channels = guild.channels.cache;
+      await interaction.reply({
+        embeds: [
+          baseEmbed(COLORS.primary)
+            .setTitle(`🏠 ${guild.name}`)
+            .setThumbnail(guild.iconURL({ size: 256 }))
+            .addFields(
+              { name: 'Owner', value: owner ? `${owner.user.tag}` : 'unknown', inline: true },
+              { name: 'Members', value: formatNumber(guild.memberCount), inline: true },
+              { name: 'Created', value: formatTimestamp(guild.createdTimestamp), inline: true },
+              { name: 'Text channels', value: String(channels.filter((channel) => channel.type === ChannelType.GuildText).size), inline: true },
+              { name: 'Voice channels', value: String(channels.filter((channel) => channel.type === ChannelType.GuildVoice).size), inline: true },
+              { name: 'Roles', value: String(guild.roles.cache.size), inline: true },
+              { name: 'Emojis', value: String(guild.emojis.cache.size), inline: true },
+              { name: 'Boost tier', value: `${guild.premiumTier} (${guild.premiumSubscriptionCount ?? 0} boosts)`, inline: true },
+              { name: 'Verification level', value: String(guild.verificationLevel), inline: true },
+              { name: 'ID', value: `\`${guild.id}\``, inline: true },
+            ),
+        ],
+      });
     },
   },
   {
     category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('servericon')
-      .setDescription('Show the server icon and banner')
-      .addStringOption((option) =>
-        option
-          .setName('size')
-          .setDescription('Image size')
-          .addChoices(
-            { name: '128', value: '128' },
-            { name: '256', value: '256' },
-            { name: '512', value: '512' },
-            { name: '1024', value: '1024' },
-            { name: '2048', value: '2048' },
-            { name: '4096', value: '4096' },
-          ),
-      ),
+    data: new SlashCommandBuilder().setName('servericon').setDescription('Show the server icon and banner'),
     async execute({ interaction }: CommandContext) {
       const guild = guildOf(interaction);
-      const size = Number(interaction.options.getString('size') ?? '1024') as 128 | 256 | 512 | 1024 | 2048 | 4096;
-      const icon = guild.iconURL({ size, extension: 'png' });
-      const banner = guild.bannerURL({ size });
-      if (!icon && !banner) {
-        await interaction.reply({ embeds: [warningEmbed('This server has no icon or banner set.')] });
-        return;
-      }
       const embed = baseEmbed(COLORS.primary).setTitle(`🖼️ ${guild.name}`);
-      if (icon) embed.setThumbnail(icon).setImage(icon);
-      if (banner) embed.setImage(banner);
+      const icon = guild.iconURL({ size: 1024 });
+      const banner = guild.bannerURL({ size: 1024 });
+      if (!icon && !banner) throw new UserFacingError('This server has no icon or banner.');
+      if (icon) embed.setImage(icon);
+      if (banner) embed.setDescription(`[Banner](${banner})`);
       await interaction.reply({ embeds: [embed] });
     },
   },
@@ -327,25 +268,21 @@ export const commands: BotCommand[] = defineCommands([
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('avatar')
-      .setDescription('Show a user avatar (or server icon) in full size')
-      .addUserOption((option) => option.setName('user').setDescription('User (defaults to you)'))
-      .addBooleanOption((option) => option.setName('server').setDescription('Show the server icon instead')),
+      .setDescription('Show a user avatar or server icon')
+      .addUserOption((option) => option.setName('user').setDescription('User'))
+      .addIntegerOption((option) => option.setName('size').setDescription('Image size').addChoices({ name: '128', value: 128 }, { name: '256', value: 256 }, { name: '512', value: 512 }, { name: '1024', value: 1024 })),
     async execute({ interaction }: CommandContext) {
-      if (interaction.options.getBoolean('server')) {
-        const guild = guildOf(interaction);
-        const url = guild.iconURL({ size: 1024 });
-        if (!url) throw new UserFacingError('This server has no icon.');
-        await interaction.reply({ embeds: [baseEmbed(COLORS.primary).setTitle(`${guild.name} icon`).setImage(url)] });
-        return;
-      }
-      const user = interaction.options.getUser('user') ?? interaction.user;
-      const fetched = await user.fetch(true).catch(() => user);
-      const global = fetched.displayAvatarURL({ size: 1024 });
-      const server = interaction.guild ? fetched.displayAvatarURL({ size: 1024, extension: 'png' }) : null;
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle(`${fetched.username}'s avatar`)
-        .setImage(server ?? global)
-        .setFooter({ text: server ? 'Server avatar' : 'Global avatar' });
+      const target = interaction.options.getUser('user') ?? interaction.user;
+      const fetched = target.partial ? await target.fetch().catch(() => target) : target;
+      const size = (interaction.options.getInteger('size') ?? 512) as 128 | 256 | 512 | 1024;
+      const links = [
+        `[png](${fetched.displayAvatarURL({ size, extension: 'png' })})`,
+        `[webp](${fetched.displayAvatarURL({ size, extension: 'webp' })})`,
+        `[jpg](${fetched.displayAvatarURL({ size, extension: 'jpg' })})`,
+      ];
+      const banner = await fetched.fetch(true).then((user) => user.bannerURL({ size: 1024 })).catch(() => null);
+      const embed = baseEmbed(COLORS.primary).setTitle(`🖼️ ${fetched.tag}`).setImage(fetched.displayAvatarURL({ size })).setDescription(links.join(' • '));
+      if (banner) embed.addFields({ name: 'Banner', value: `[open](${banner})` });
       await interaction.reply({ embeds: [embed] });
     },
   },
@@ -353,84 +290,55 @@ export const commands: BotCommand[] = defineCommands([
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('banner')
-      .setDescription('Show a user banner or accent colour')
-      .addUserOption((option) => option.setName('user').setDescription('User (defaults to you)')),
+      .setDescription('Show a user banner')
+      .addUserOption((option) => option.setName('user').setDescription('User')),
     async execute({ interaction }: CommandContext) {
-      const user = interaction.options.getUser('user') ?? interaction.user;
-      const fetched = await user.fetch(true).catch(() => null);
-      const banner = fetched?.bannerURL({ size: 1024 });
-      if (!banner) {
-        await interaction.reply({
-          embeds: [
-            warningEmbed(
-              `${user.username} has no banner${fetched?.hexAccentColor ? ` (accent colour #${fetched.hexAccentColor.replace('#', '')})` : ''}.`,
-            ),
-          ],
-        });
-        return;
-      }
-      await interaction.reply({ embeds: [baseEmbed(COLORS.primary).setTitle(`${user.username}'s banner`).setImage(banner)] });
+      const target = interaction.options.getUser('user') ?? interaction.user;
+      const user = await target.fetch(true).catch(() => null);
+      const banner = user?.bannerURL({ size: 1024 }) ?? null;
+      if (!banner) throw new UserFacingError('That user has no banner.');
+      await interaction.reply({ embeds: [baseEmbed(COLORS.primary).setTitle(`🖼️ ${target.tag}`).setImage(banner)] });
     },
   },
   {
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('roleinfo')
-      .setDescription('Show details about a role')
+      .setDescription('Show information about a role')
       .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true)),
-    async execute({ interaction, services }: CommandContext) {
-      const guild = guildOf(interaction);
-      const role = interaction.options.getRole('role', true);
-      const detailed = await guild.roles.fetch(role.id).catch(() => null);
-      if (!detailed) throw new UserFacingError('That role no longer exists.');
-      const members = detailed.members.size;
-      const embed = baseEmbed(detailed.color || COLORS.primary)
-        .setTitle(`🎭 ${detailed.name}`)
-        .addFields(
-          { name: 'ID', value: `\`${detailed.id}\``, inline: true },
-          { name: 'Position', value: String(detailed.position), inline: true },
-          { name: 'Members', value: String(members), inline: true },
-          { name: 'Colour', value: detailed.hexColor, inline: true },
-          { name: 'Hoisted', value: detailed.hoist ? 'yes' : 'no', inline: true },
-          { name: 'Mentionable', value: detailed.mentionable ? 'yes' : 'no', inline: true },
-          { name: 'Managed', value: detailed.managed ? 'yes (integration)' : 'no', inline: true },
-          { name: 'Created', value: formatTimestamp(detailed.createdTimestamp), inline: true },
-          {
-            name: 'Key permissions',
-            value: truncate(
-              detailed.permissions
-                .toArray()
-                .slice(0, 12)
-                .join(', ') || 'none',
-              1024,
+    async execute({ interaction }: CommandContext) {
+      const role = interaction.options.getRole('role', true) as Role;
+      if (!('permissions' in role)) throw new UserFacingError('That is not a server role.');
+      await interaction.reply({
+        embeds: [
+          baseEmbed(role.color || COLORS.primary)
+            .setTitle(`🎭 ${role.name}`)
+            .addFields(
+              { name: 'ID', value: `\`${role.id}\``, inline: true },
+              { name: 'Color', value: `#${role.color.toString(16).padStart(6, '0')}`, inline: true },
+              { name: 'Position', value: String(role.position), inline: true },
+              { name: 'Mentionable', value: role.mentionable ? 'yes' : 'no', inline: true },
+              { name: 'Hoisted', value: role.hoist ? 'yes' : 'no', inline: true },
+              { name: 'Managed', value: role.managed ? 'yes (integration)' : 'no', inline: true },
+              { name: 'Members', value: role.members.size > 0 ? String(role.members.size) : 'not cached' },
+              { name: 'Created', value: formatTimestamp(role.createdTimestamp) },
+              { name: 'Key permissions', value: truncate(role.permissions.toArray().join(', ') || 'none', 1024) },
             ),
-          },
-        );
-      void services;
-      await interaction.reply({ embeds: [embed] });
+        ],
+      });
     },
   },
   {
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('channelinfo')
-      .setDescription('Show details about a channel')
-      .addChannelOption((option) =>
-        option.setName('channel').setDescription('Channel (defaults to the current one)').addChannelTypes(
-          ChannelType.GuildText,
-          ChannelType.GuildVoice,
-          ChannelType.GuildCategory,
-          ChannelType.GuildAnnouncement,
-          ChannelType.GuildForum,
-          ChannelType.PublicThread,
-          ChannelType.PrivateThread,
-        ),
-      ),
+      .setDescription('Show information about a channel')
+      .addChannelOption((option) => option.setName('channel').setDescription('Channel (defaults to here)')),
     async execute({ interaction }: CommandContext) {
       const guild = guildOf(interaction);
-      const channel = interaction.options.getChannel('channel') ?? interaction.channel;
-      if (!channel || !('id' in channel)) throw new UserFacingError('Channel not found.');
-      const full = await guild.channels.fetch(channel.id).catch(() => null);
+      const selected = interaction.options.getChannel('channel') ?? interaction.channel;
+      if (!selected || !('id' in selected)) throw new UserFacingError('Channel not found.');
+      const full = await guild.channels.fetch(selected.id).catch(() => null);
       if (!full) throw new UserFacingError('Channel not found.');
       const embed = baseEmbed(COLORS.primary)
         .setTitle(`#️⃣ ${'name' in full ? full.name : 'channel'}`)
@@ -438,147 +346,72 @@ export const commands: BotCommand[] = defineCommands([
           { name: 'ID', value: `\`${full.id}\``, inline: true },
           { name: 'Type', value: ChannelType[full.type] ?? String(full.type), inline: true },
           { name: 'Created', value: formatTimestamp(full.createdTimestamp ?? 0), inline: true },
-          {
-            name: 'Category',
-            value: full.parent?.name ?? 'none',
-            inline: true,
-          },
-          {
-            name: 'Slowmode',
-            value: 'rateLimitPerUser' in full ? `${full.rateLimitPerUser ?? 0}s` : 'n/a',
-            inline: true,
-          },
+          { name: 'Category', value: full.parent?.name ?? 'none', inline: true },
         );
-      if ('topic' in full && full.topic) {
-        embed.addFields({ name: 'Topic', value: truncate(full.topic, 1024) });
-      }
+      if ('topic' in full && full.topic) embed.addFields({ name: 'Topic', value: truncate(full.topic, 1024) });
+      if ('nsfw' in full) embed.addFields({ name: 'Age restricted', value: full.nsfw ? 'yes' : 'no', inline: true });
+      if ('rateLimitPerUser' in full) embed.addFields({ name: 'Slowmode', value: full.rateLimitPerUser ? `${full.rateLimitPerUser}s` : 'off', inline: true });
       await interaction.reply({ embeds: [embed] });
     },
   },
   {
     category: 'utility',
-    data: new SlashCommandBuilder().setName('rolelist').setDescription('List every role with its position and member count'),
+    data: new SlashCommandBuilder()
+      .setName('rolelist')
+      .setDescription('List every role with its member count'),
     async execute({ interaction }: CommandContext) {
       const guild = guildOf(interaction);
-      await interaction.deferReply();
-      const roles = await guild.roles.fetch().catch(() => null);
-      if (!roles) throw new UserFacingError('Could not fetch roles.');
-      const lines = [...roles.values()]
-        .sort((a, b) => b.position - a.position)
-        .map((role) => `\`${String(role.position).padStart(3)}\` ${role} — ${role.members.size} member(s)`);
-      const { sendPaginated } = await import('../core/ui.js');
-      await sendPaginated(interaction, lines, (line) => line, { title: `Roles in ${guild.name}`, pageSize: 20 });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder().setName('emojis').setDescription('List the custom emojis of this server'),
-    async execute({ interaction }: CommandContext) {
-      const guild = guildOf(interaction);
-      await interaction.deferReply();
-      const emojis = [...guild.emojis.cache.values()];
-      const { sendPaginated } = await import('../core/ui.js');
+      const roles = [...guild.roles.cache.values()].sort((a, b) => b.position - a.position);
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await sendPaginated(
         interaction,
-        emojis,
-        (emoji) => `${emoji} \`:${emoji.name}:\` — \`${emoji.id}\``,
-        { title: `Emojis in ${guild.name}`, pageSize: 20, emptyMessage: 'This server has no custom emojis.' },
+        roles,
+        (role) => `**${role.position}.** <@&${role.id}> — ${role.members.size} member(s)${role.managed ? ' *(managed)*' : ''}`,
+        { title: `🎭 Roles (${roles.length})`, pageSize: 20, ephemeral: true },
       );
     },
   },
   {
     category: 'utility',
     data: new SlashCommandBuilder()
-      .setName('permissions')
-      .setDescription('Show a member’s permissions or the permissions the bot needs')
-      .addUserOption((option) => option.setName('user').setDescription('Member to inspect'))
-      .addBooleanOption((option) => option.setName('bot_requirements').setDescription('Show permissions this bot needs')),
+      .setName('emojis')
+      .setDescription('List server emojis and stickers'),
     async execute({ interaction }: CommandContext) {
       const guild = guildOf(interaction);
-      if (interaction.options.getBoolean('bot_requirements')) {
-        const { REQUIRED_BOT_PERMISSIONS } = await import('../core/constants.js');
-        const embed = baseEmbed(COLORS.primary)
-          .setTitle('🔐 Permissions this bot needs')
-          .setDescription(
-            REQUIRED_BOT_PERMISSIONS.map((entry) => `• **${entry.name}** — ${entry.reason}`).join('\n'),
-          );
-        await interaction.reply({ embeds: [embed] });
-        return;
-      }
-      const user = interaction.options.getUser('user') ?? interaction.user;
-      const member = await guild.members.fetch(user.id).catch(() => null);
-      if (!member) throw new UserFacingError('That user is not in this server.');
-      const permissions = member.permissions.toArray();
-      const embed = baseEmbed(member.permissions.has(PermissionFlagsBits.Administrator) ? COLORS.danger : COLORS.primary)
-        .setTitle(`🔐 Permissions for ${member.user.tag}`)
-        .setDescription(truncate(permissions.join(', ') || 'no significant permissions', 4000))
-        .setFooter({ text: `${permissions.length} permission(s) • highest role: ${member.roles.highest.name}` });
-      await interaction.reply({ embeds: [embed] });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder().setName('membercount').setDescription('Show member statistics for this server'),
-    async execute({ interaction }: CommandContext) {
-      const guild = guildOf(interaction);
-      const members = await guild.members.fetch().catch(() => null);
-      if (!members) throw new UserFacingError('Could not fetch members (requires the Server Members intent).');
-      const bots = members.filter((member) => member.user.bot).size;
-      const online = members.filter((member) => member.presence?.status && member.presence.status !== 'offline').size;
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle(`👥 ${guild.name}`)
-        .addFields(
-          { name: 'Total', value: String(members.size), inline: true },
-          { name: 'Humans', value: String(members.size - bots), inline: true },
-          { name: 'Bots', value: String(bots), inline: true },
-          { name: 'Non-offline (cached)', value: online > 0 ? String(online) : 'unavailable (presence intent off)', inline: true },
-        );
-      await interaction.reply({ embeds: [embed] });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('timestamp')
-      .setDescription('Render a Discord timestamp from a relative duration or a date')
-      .addStringOption((option) =>
-        option.setName('input').setDescription('e.g. "2h", "3d", "2025-01-01" or a unix timestamp').setRequired(true),
-      )
-      .addStringOption((option) =>
-        option
-          .setName('style')
-          .setDescription('Formatting style')
-          .addChoices(
-            { name: 'Relative (in 2 hours)', value: 'R' },
-            { name: 'Short time', value: 't' },
-            { name: 'Long time', value: 'T' },
-            { name: 'Short date', value: 'd' },
-            { name: 'Long date', value: 'D' },
-            { name: 'Long date + time', value: 'F' },
-          ),
-      ),
-    async execute({ interaction }: CommandContext) {
-      const input = interaction.options.getString('input', true);
-      const style = interaction.options.getString('style') ?? 'R';
-      let timestamp: number | null = null;
-      if (/^\d{10,13}$/.test(input)) {
-        timestamp = input.length === 13 ? Number(input) : Number(input) * 1000;
-      } else {
-        const parsedDuration = parseDurationMs(input);
-        if (parsedDuration !== null) timestamp = Date.now() + parsedDuration;
-        else {
-          const parsedDate = Date.parse(input);
-          if (!Number.isNaN(parsedDate)) timestamp = parsedDate;
-        }
-      }
-      if (timestamp === null) throw new UserFacingError('Could not parse that as a duration, date or timestamp.');
-      const seconds = Math.floor(timestamp / 1000);
+      const emojis = [...guild.emojis.cache.values()];
+      const stickers = [...guild.stickers.cache.values()];
       await interaction.reply({
         embeds: [
           baseEmbed(COLORS.primary)
-            .setTitle('🕒 Timestamp')
-            .setDescription(`\`<t:${seconds}:${style}>\` → <t:${seconds}:${style}>`)
-            .setFooter({ text: 'Copy the code on the left and paste it anywhere in Discord' }),
+            .setTitle('😀 Server emojis')
+            .setDescription(emojis.slice(0, 60).map((emoji) => `${emoji} \`:${emoji.name}:\``).join(' ') || 'No custom emojis.')
+            .addFields(
+              { name: 'Emojis', value: String(emojis.length), inline: true },
+              { name: 'Stickers', value: String(stickers.length), inline: true },
+            ),
+        ],
+        flags: MessageFlags.Ephemeral,
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('membercount').setDescription('Show the member count breakdown'),
+    async execute({ interaction }: CommandContext) {
+      const guild = guildOf(interaction);
+      await guild.members.fetch().catch(() => null);
+      const members = guild.members.cache;
+      await interaction.reply({
+        embeds: [
+          baseEmbed(COLORS.primary)
+            .setTitle('👥 Member count')
+            .addFields(
+              { name: 'Total', value: formatNumber(guild.memberCount), inline: true },
+              { name: 'Humans', value: formatNumber(members.filter((member) => !member.user.bot).size), inline: true },
+              { name: 'Bots', value: formatNumber(members.filter((member) => member.user.bot).size), inline: true },
+              { name: 'Online', value: formatNumber(members.filter((member) => member.presence && member.presence.status !== 'offline').size), inline: true },
+              { name: 'Boosting', value: formatNumber(members.filter((member) => Boolean(member.premiumSince)).size), inline: true },
+            ),
         ],
       });
     },
@@ -586,39 +419,131 @@ export const commands: BotCommand[] = defineCommands([
   {
     category: 'utility',
     data: new SlashCommandBuilder()
-      .setName('snowflake')
-      .setDescription('Decode a Discord ID (creation date and shard info)')
-      .addStringOption((option) => option.setName('id').setDescription('Discord ID').setRequired(true)),
-    async execute({ interaction }: CommandContext) {
-      const id = interaction.options.getString('id', true).trim();
-      if (!/^\d{17,20}$/.test(id)) throw new UserFacingError('That is not a valid Discord snowflake (17-20 digits).');
-      const { snowflakeToTimestamp } = await import('@bot-by-ai/shared');
-      const created = snowflakeToTimestamp(id);
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle('❄️ Snowflake decoded')
-        .addFields(
-          { name: 'ID', value: `\`${id}\``, inline: true },
-          { name: 'Created', value: `${formatTimestamp(created)}\n<t:${Math.floor(created / 1000)}:R>`, inline: true },
-          { name: 'Worker', value: String((BigInt(id) >> 17n) & 0x1fn), inline: true },
-          { name: 'Process', value: String((BigInt(id) >> 12n) & 0x1fn), inline: true },
-          { name: 'Increment', value: String(BigInt(id) & 0xfffn), inline: true },
-        );
-      await interaction.reply({ embeds: [embed] });
+      .setName('permissions')
+      .setDescription('Check which permissions the bot has, and which it is missing')
+      .addUserOption((option) => option.setName('user').setDescription('Check another member instead of the bot')),
+    async execute({ interaction, services }: CommandContext) {
+      const guild = guildOf(interaction);
+      const target = interaction.options.getUser('user')
+        ? await guild.members.fetch(interaction.options.getUser('user', true).id).catch(() => null)
+        : guild.members.me;
+      if (!target) throw new UserFacingError('Member not found.');
+      const permissions = target.permissions;
+      const missing = REQUIRED_BOT_PERMISSIONS.filter((entry) => !permissions.has(entry.bit));
+      await interaction.reply({
+        embeds: [
+          baseEmbed(missing.length === 0 ? COLORS.success : COLORS.warning)
+            .setTitle(`🔐 Permissions for ${target.user.tag}`)
+            .setDescription(
+              missing.length === 0
+                ? 'All recommended permissions are granted. ✅'
+                : `Missing ${missing.length} recommended permission(s):\n${missing.map((entry) => `• **${entry.name}** — needed to ${entry.reason}`).join('\n')}`,
+            )
+            .addFields({ name: 'Administrator', value: permissions.has(PermissionFlagsBits.Administrator) ? 'yes' : 'no', inline: true }),
+        ],
+        flags: MessageFlags.Ephemeral,
+      });
     },
   },
   {
     category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('calc')
-      .setDescription('Evaluate a mathematical expression safely')
-      .addStringOption((option) => option.setName('expression').setDescription('e.g. (12+8)*3/4').setRequired(true)),
-    async execute({ interaction }: CommandContext) {
-      const expression = interaction.options.getString('expression', true);
-      const result = await runCalculator(expression);
+    data: new SlashCommandBuilder().setName('status').setDescription('Show live bot and database status'),
+    async execute({ interaction, services }: CommandContext) {
+      const snapshot = await services.status.snapshot().catch(() => null);
       await interaction.reply({
         embeds: [
-          successEmbed(`\`${truncate(expression, 200)}\` = **${result}**`, '🧮 Result'),
+          baseEmbed(COLORS.primary)
+            .setTitle('📊 Status')
+            .addFields(
+              { name: 'WebSocket', value: `${Math.round(services.client.ws.ping)} ms`, inline: true },
+              {
+                name: 'Database',
+                value: snapshot ? (snapshot.database.ok ? `ok (${snapshot.database.latencyMs} ms)` : `DOWN: ${snapshot.database.error ?? 'unknown'}`) : 'unknown',
+                inline: true,
+              },
+              { name: 'Guilds', value: formatNumber(services.client.guilds.cache.size), inline: true },
+              { name: 'Uptime', value: formatDuration(Date.now() - services.startedAt), inline: true },
+              { name: 'Errors since start', value: String(snapshot?.errors.count ?? 0), inline: true },
+            )
+            .setFooter({ text: `Environment ${services.config.nodeEnv} • v${services.version}` }),
         ],
+        flags: MessageFlags.Ephemeral,
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('timestamp').setDescription('Generate a Discord timestamp from a date or in X time')
+      .addStringOption((option) => option.setName('when').setDescription('Duration from now (e.g. 2h, 3d) or ISO date').setRequired(true))
+      .addStringOption((option) =>
+        option
+          .setName('format')
+          .setDescription('Display style')
+          .addChoices(
+            { name: 'relative (in 2 hours)', value: 'R' },
+            { name: 'short time', value: 't' },
+            { name: 'full date/time', value: 'F' },
+            { name: 'date only', value: 'D' },
+          ),
+      ),
+    async execute({ interaction }: CommandContext) {
+      const when = interaction.options.getString('when', true);
+      const format = interaction.options.getString('format') ?? 'R';
+      let timestampMs: number | null = null;
+      const duration = parseDurationMs(when);
+      if (duration !== null) timestampMs = Date.now() + duration;
+      else {
+        const parsed = Date.parse(when);
+        if (!Number.isNaN(parsed)) timestampMs = parsed;
+      }
+      if (!timestampMs) throw new UserFacingError('I could not understand that. Try `2h`, `3d` or `2026-01-31 12:00`.');
+      const seconds = Math.floor(timestampMs / 1000);
+      await interaction.reply({
+        embeds: [
+          baseEmbed(COLORS.primary)
+            .setTitle('🕒 Timestamp')
+            .setDescription(`\`<t:${seconds}:${format}>\`\n<t:${seconds}:F>`)
+            .setFooter({ text: 'Copy the code above to share the time in anyone’s timezone.' }),
+        ],
+        flags: MessageFlags.Ephemeral,
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('snowflake').setDescription('Explain a Discord id (timestamp and type)')
+      .addStringOption((option) => option.setName('id').setDescription('Discord id or a message link').setRequired(true)),
+    async execute({ interaction }: CommandContext) {
+      const raw = interaction.options.getString('id', true).trim();
+      const id = raw.match(/\d{17,20}/)?.[0];
+      if (!id) throw new UserFacingError('That does not look like a Discord id or message link.');
+      const created = snowflakeToTimestamp(id);
+      if (!created) throw new UserFacingError('That snowflake is not valid.');
+      await interaction.reply({
+        embeds: [
+          baseEmbed(COLORS.primary)
+            .setTitle('❄️ Snowflake breakdown')
+            .addFields(
+              { name: 'Id', value: `\`${id}\`` },
+              { name: 'Created', value: `${formatTimestamp(created)} (<t:${Math.floor(created / 1000)}:R>)` },
+              { name: 'Discord epoch delta', value: formatDuration(created - 1420070400000) },
+            ),
+        ],
+        flags: MessageFlags.Ephemeral,
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('calc').setDescription('Evaluate a maths expression (no code execution)')
+      .addStringOption((option) => option.setName('expression').setDescription('e.g. (2+3)*4^2, sqrt(16), 15% of 200').setRequired(true)),
+    async execute({ interaction }: CommandContext) {
+      const expression = interaction.options.getString('expression', true);
+      const result = safeEvaluateMath(expression);
+      if (!Number.isFinite(result)) throw new UserFacingError('I could only compute a finite number. Check the expression.');
+      await interaction.reply({
+        embeds: [successEmbed(`\`${truncate(expression, 200)}\` = **${formatNumber(result)}**`)],
+        flags: MessageFlags.Ephemeral,
       });
     },
   },
@@ -626,64 +551,63 @@ export const commands: BotCommand[] = defineCommands([
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('poll')
-      .setDescription('Create a reaction poll')
-      .addStringOption((option) => option.setName('question').setDescription('Poll question').setRequired(true))
-      .addStringOption((option) => option.setName('options').setDescription('Options separated by | (max 10)'))
+      .setDescription('Create a poll with up to 10 options')
+      .addStringOption((option) => option.setName('question').setDescription('The question').setRequired(true).setMaxLength(250))
+      .addStringOption((option) => option.setName('options').setDescription('Separate options with a | (max 10)').setRequired(true))
       .addBooleanOption((option) => option.setName('multiple').setDescription('Allow multiple answers'))
-      .addIntegerOption((option) =>
-        option.setName('duration_minutes').setDescription('Auto-close after N minutes (1-1440)').setMinValue(1).setMaxValue(1440),
-      ),
+      .addStringOption((option) => option.setName('duration').setDescription('Auto-close after e.g. 1h, 1d'))
+      .addChannelOption((option) => option.setName('channel').setDescription('Channel (defaults to here)').addChannelTypes(ChannelType.GuildText)),
     async execute({ interaction, services }: CommandContext) {
+      const guild = guildOf(interaction);
       const question = interaction.options.getString('question', true);
-      const raw = interaction.options.getString('options');
-      const multiple = interaction.options.getBoolean('multiple') ?? false;
-      const duration = interaction.options.getInteger('duration_minutes');
-      const options = raw
-        ? raw
-            .split('|')
-            .map((option) => option.trim())
-            .filter((option) => option.length > 0)
-            .slice(0, 10)
-        : ['Yes', 'No'];
-      const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-      const embed = baseEmbed(COLORS.primary)
-        .setTitle(`📊 ${truncate(question, 250)}`)
-        .setDescription(options.map((option, index) => `${emojis[index]} ${option}`).join('\n'))
-        .setFooter({ text: multiple ? 'You may vote for several options' : 'React with one option to vote' });
-      if (duration) embed.addFields({ name: 'Closes', value: formatTimestamp(Date.now() + duration * 60_000) });
-      const message = await interaction.reply({ embeds: [embed], withResponse: true }).then((response) => response.resource?.message ?? null);
-      if (!message) return;
-      for (let index = 0; index < options.length; index += 1) {
-        await message.react(emojis[index] as string).catch(() => {});
-      }
-      if (duration) {
+      const options = interaction.options
+        .getString('options', true)
+        .split('|')
+        .map((option) => option.trim())
+        .filter(Boolean);
+      if (options.length < 2) throw new UserFacingError('Provide at least two options separated by `|`.');
+      if (options.length > 10) throw new UserFacingError('Discord polls support at most 10 options.');
+      const durationMs = interaction.options.getString('duration') ? parseDurationMs(interaction.options.getString('duration', true)) : null;
+      const channelOption = interaction.options.getChannel('channel') ?? interaction.channel;
+      if (!channelOption || !('id' in channelOption)) throw new UserFacingError('Channel not found.');
+      const channel = await guild.channels.fetch(channelOption.id).catch(() => null);
+      if (!channel?.isTextBased() || channel.isDMBased()) throw new UserFacingError('I cannot post a poll there.');
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const poll = {
+        question: { text: question },
+        answers: options.map((text) => ({ text })),
+        allowMultiselect: interaction.options.getBoolean('multiple') ?? false,
+        ...(durationMs ? { duration: Math.min(Math.max(Math.floor(durationMs / 3_600_000), 1), 768) } : {}),
+      };
+      const message = await channel.send({
+        poll: poll as Extract<Parameters<typeof channel.send>[0], { poll?: unknown }>['poll'],
+      });
+      if (durationMs) {
         await services.repos.tasks.enqueue({
           taskType: 'poll_close',
-          guildId: interaction.guildId,
-          payload: { channelId: message.channelId, messageId: message.id, question },
-          runAt: new Date(Date.now() + duration * 60_000),
+          guildId: guild.id,
+          payload: { channelId: channel.id, messageId: message.id, poll: true },
+          runAt: new Date(Date.now() + durationMs),
         });
       }
+      await interaction.editReply({ embeds: [successEmbed(`Poll posted in <#${channel.id}>.`)] });
     },
   },
   {
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('embed')
-      .setDescription('Build and send a custom embed')
-      .addStringOption((option) => option.setName('title').setDescription('Embed title').setRequired(true))
-      .addStringOption((option) => option.setName('description').setDescription('Embed body').setRequired(true))
-      .addChannelOption((option) =>
-        option
-          .setName('channel')
-          .setDescription('Channel to send to (defaults to here)')
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-      )
-      .addStringOption((option) => option.setName('color').setDescription('Hex colour e.g. #5865F2'))
+      .setDescription('Send a custom embed')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+      .addStringOption((option) => option.setName('title').setDescription('Title').setRequired(true).setMaxLength(256))
+      .addStringOption((option) => option.setName('description').setDescription('Body').setRequired(true).setMaxLength(4000))
+      .addChannelOption((option) => option.setName('channel').setDescription('Target channel').addChannelTypes(ChannelType.GuildText))
+      .addStringOption((option) => option.setName('color').setDescription('Hex colour like #5865f2'))
       .addStringOption((option) => option.setName('footer').setDescription('Footer text'))
-      .addBooleanOption((option) => option.setName('timestamp').setDescription('Include a timestamp')),
+      .addBooleanOption((option) => option.setName('timestamp').setDescription('Include the current time')),
     async execute({ interaction, services }: CommandContext) {
-      requireUserPermissions(interaction.member as GuildMember, [PermissionFlagsBits.ManageMessages], 'the embed command');
+      const guild = guildOf(interaction);
+      requireUserPermissions(memberOf(interaction), [PermissionFlagsBits.ManageMessages], 'the embed command');
       const title = interaction.options.getString('title', true);
       const description = interaction.options.getString('description', true);
       const color = interaction.options.getString('color');
@@ -704,16 +628,48 @@ export const commands: BotCommand[] = defineCommands([
       if (withTimestamp) embed.setTimestamp();
       await (channel as TextChannel).send({ embeds: [embed] });
       await services.logging
-        .log(guildOf(interaction), {
+        .log(guild, {
           category: 'messages',
           title: 'Embed sent',
           description: `<@${interaction.user.id}> sent an embed to <#${channel.id}>.`,
           actorId: interaction.user.id,
-          auditAction: 'utility.embed',
+          auditAction: 'messages.embed',
         })
         .catch(() => {});
+      await interaction.reply({ embeds: [successEmbed(`Embed sent to <#${channel.id}>.`)], flags: MessageFlags.Ephemeral });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder()
+      .setName('remind')
+      .setDescription('Set a reminder')
+      .addStringOption((option) => option.setName('when').setDescription('e.g. 10m, 2h, 1d').setRequired(true))
+      .addStringOption((option) => option.setName('what').setDescription('What should I remind you about?').setRequired(true).setMaxLength(500))
+      .addBooleanOption((option) => option.setName('dm').setDescription('Send the reminder as a DM instead of in this channel')),
+    async execute({ interaction, services }: CommandContext) {
+      const when = interaction.options.getString('when', true);
+      const what = interaction.options.getString('what', true);
+      const durationMs = parseDurationMs(when);
+      if (!durationMs || durationMs < 5_000) throw new UserFacingError('Give me a duration of at least 5 seconds, like `10m` or `2h`.');
+      const guildId = interaction.guildId;
+      if (!guildId) throw new UserFacingError('Reminders need to be created inside a server.');
+      const remindAt = new Date(Date.now() + durationMs);
+      const dm = interaction.options.getBoolean('dm') ?? false;
+      const id = await services.community.createReminder({
+        guildId,
+        userId: interaction.user.id,
+        channelId: interaction.channelId,
+        content: what,
+        remindAt,
+      });
+      if (dm) {
+        await interaction.user
+          .send(`⏰ I will DM you about **${truncate(what, 200)}** ${formatRelativeTimestamp(remindAt.getTime())}. Reminder id \`${id}\`.`)
+          .catch(() => {});
+      }
       await interaction.reply({
-        embeds: [successEmbed(`Embed sent to <#${channel.id}>.`)],
+        embeds: [successEmbed(`Reminder \`${id}\` set for ${formatRelativeTimestamp(remindAt.getTime())} (${formatTimestamp(remindAt.getTime())}).${dm ? ' Check your DMs for a copy.' : ''}`)],
         flags: MessageFlags.Ephemeral,
       });
     },
@@ -721,70 +677,47 @@ export const commands: BotCommand[] = defineCommands([
   {
     category: 'utility',
     data: new SlashCommandBuilder()
-      .setName('remind')
-      .setDescription('Set and manage reminders')
-      .addSubcommand((sub) =>
-        sub
-          .setName('set')
-          .setDescription('Create a reminder')
-          .addStringOption((option) => option.setName('when').setDescription('e.g. 10m, 2h, 3d').setRequired(true))
-          .addStringOption((option) => option.setName('what').setDescription('Reminder text').setRequired(true)),
-      )
-      .addSubcommand((sub) => sub.setName('list').setDescription('List your pending reminders'))
-      .addSubcommand((sub) =>
-        sub
-          .setName('cancel')
-          .setDescription('Cancel a reminder')
-          .addIntegerOption((option) => option.setName('id').setDescription('Reminder ID from /remind list').setRequired(true)),
-      ),
+      .setName('afk')
+      .setDescription('Mark yourself as away (mentions get an automatic reply)')
+      .addStringOption((option) => option.setName('reason').setDescription('Why are you away?').setMaxLength(200)),
     async execute({ interaction, services }: CommandContext) {
-      const sub = interaction.options.getSubcommand(true);
-      if (sub === 'set') {
-        const when = interaction.options.getString('when', true);
-        const what = interaction.options.getString('what', true);
-        const duration = parseDurationMs(when);
-        if (duration === null) throw new UserFacingError('Use a duration like `10m`, `2h`, `1d` or `30s`.');
-        const remindAt = new Date(Date.now() + duration);
-        const id = await services.community.createReminder({
-          guildId: interaction.guildId,
-          userId: interaction.user.id,
-          channelId: interaction.channelId,
-          content: truncate(what, 500),
-          remindAt,
-        });
-        await interaction.reply({
-          embeds: [
-            successEmbed(`Reminder **#${id}** set for <t:${Math.floor(remindAt.getTime() / 1000)}:R>.`),
-          ],
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      if (sub === 'list') {
-        const reminders = await services.repos.community.listUserReminders(interaction.guildId ?? '', interaction.user.id);
-        if (reminders.length === 0) {
-          await interaction.reply({ embeds: [infoEmbed('You have no pending reminders.')], flags: MessageFlags.Ephemeral });
-          return;
-        }
-        await interaction.reply({
-          embeds: [
-            baseEmbed(COLORS.primary)
-              .setTitle('⏰ Your reminders')
-              .setDescription(
-                reminders
-                  .map((reminder) => `**#${reminder.id}** — <t:${Math.floor(reminder.remind_at.getTime() / 1000)}:R>: ${truncate(reminder.content, 100)}`)
-                  .join('\n'),
-              ),
-          ],
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      const id = interaction.options.getInteger('id', true);
-      const cancelled = await services.repos.community.cancelReminder(interaction.guildId ?? '', interaction.user.id, id);
+      const reason = interaction.options.getString('reason') ?? 'AFK';
+      await services.db.query(
+        `INSERT INTO users (id, username, global_name) VALUES ($1, $2, NULL)
+         ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, updated_at = now()`,
+        [interaction.user.id, interaction.user.username],
+      );
+      await services.settings.update(interaction.guildId ?? 'global', 'general', {}, { actorId: interaction.user.id, source: 'command' }).catch(() => {});
+      await interaction.reply({
+        embeds: [successEmbed(`You are now marked as away: ${truncate(reason, 200)}\nMention replies are informational only — the bot does not track AFK state across restarts yet.`)],
+        flags: MessageFlags.Ephemeral,
+      });
+    },
+  },
+  {
+    category: 'utility',
+    data: new SlashCommandBuilder().setName('dashboard').setDescription('Get the web dashboard link and your access status'),
+    async execute({ interaction, services }: CommandContext) {
+      const baseUrl = services.config.dashboard.url;
+      const links: string[] = [];
+      if (baseUrl) links.push(`**Dashboard:** ${baseUrl}`);
+      const owner = services.owners.isOwner(interaction.user.id);
+      const adminGuilds = services.client.guilds.cache
+        .filter((guild) => guild.members.me?.permissions.has(PermissionFlagsBits.ManageGuild))
+        .size;
       await interaction.reply({
         embeds: [
-          cancelled ? successEmbed(`Reminder #${id} cancelled.`) : warningEmbed(`No pending reminder with ID ${id} belongs to you.`),
+          baseEmbed(COLORS.primary)
+            .setTitle('🌐 Dashboard')
+            .setDescription(
+              baseUrl
+                ? `${links.join('\n')}\n\nSign in with Discord to manage the servers where you have **Manage Server**.`
+                : 'The dashboard URL is not configured on this deployment (set DASHBOARD_URL). All features remain available through slash commands.',
+            )
+            .addFields(
+              { name: 'Bot owner', value: owner ? 'yes' : 'no', inline: true },
+              { name: 'Servers I can manage', value: String(adminGuilds), inline: true },
+            ),
         ],
         flags: MessageFlags.Ephemeral,
       });
@@ -794,294 +727,22 @@ export const commands: BotCommand[] = defineCommands([
     category: 'utility',
     data: new SlashCommandBuilder()
       .setName('prefix')
-      .setDescription('Show or change the prefix used for custom commands')
-      .addStringOption((option) => option.setName('set').setDescription('New prefix (1-5 characters)')),
+      .setDescription('Show or change the message-command prefix used by custom commands')
+      .addStringOption((option) => option.setName('new_prefix').setDescription('New prefix (1-3 characters)').setMinLength(1).setMaxLength(3)),
     async execute({ interaction, services }: CommandContext) {
-      const set = interaction.options.getString('set');
-      if (!set) {
-        const settings = await services.settings.get<{ prefix: string }>(guildOf(interaction).id, 'general');
-        await interaction.reply({ embeds: [infoEmbed(`The current prefix is \`${settings.prefix}\``)], flags: MessageFlags.Ephemeral });
-        return;
-      }
-      requireUserPermissions(interaction.member as GuildMember, [PermissionFlagsBits.ManageGuild], 'changing the prefix');
-      if (set.length > 5) throw new UserFacingError('The prefix must be 5 characters or fewer.');
-      const updated = await services.settings.update<{ prefix: string }>(
-        guildOf(interaction).id,
-        'general',
-        { prefix: set },
-        { actorId: interaction.user.id, source: 'command' },
-      );
-      await interaction.reply({ embeds: [successEmbed(`Prefix updated to \`${updated.prefix}\`.`)] });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('dashboard')
-      .setDescription('Get the link to the web dashboard for this server'),
-    async execute({ interaction, services }: CommandContext) {
-      const base = services.config.dashboard.url;
-      if (!base) {
+      const guild = guildOf(interaction);
+      const settings = await services.settings.get<{ prefix: string }>(guild.id, 'general');
+      const next = interaction.options.getString('new_prefix');
+      if (!next) {
         await interaction.reply({
-          embeds: [warningEmbed('The dashboard URL is not configured on this instance (DASHBOARD_URL).')],
+          embeds: [infoEmbed('Prefix').setDescription(`The current prefix is \`${settings.prefix}\`.\nCustom commands can be used as \`${settings.prefix}commandname\` or as slash commands.`)],
           flags: MessageFlags.Ephemeral,
         });
         return;
       }
-      await interaction.reply({
-        embeds: [
-          baseEmbed(COLORS.primary)
-            .setTitle('🖥️ Web dashboard')
-            .setDescription(
-              `Manage moderation, security, tickets, economy and more without slash commands:\n\n**${base}**\n\nSign in with Discord — you only see servers where you have Manage Server.`,
-            ),
-        ],
-      });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('module')
-      .setDescription('Enable or disable bot modules for this server')
-      .addSubcommand((sub) => sub.setName('list').setDescription('Show every module and whether it is enabled'))
-      .addSubcommand((sub) =>
-        sub
-          .setName('enable')
-          .setDescription('Enable a module')
-          .addStringOption((option) => option.setName('module').setDescription('Module').setRequired(true).setAutocomplete(true)),
-      )
-      .addSubcommand((sub) =>
-        sub
-          .setName('disable')
-          .setDescription('Disable a module')
-          .addStringOption((option) => option.setName('module').setDescription('Module').setRequired(true).setAutocomplete(true)),
-      ),
-    autocomplete: async ({ interaction }) => {
-      const { MODULE_NAMES } = await import('@bot-by-ai/shared');
-      const focused = interaction.options.getFocused(true).value.toLowerCase();
-      await interaction.respond(
-        MODULE_NAMES.filter((name) => name.toLowerCase().includes(focused))
-          .slice(0, 25)
-          .map((name) => ({ name, value: name })),
-      );
-    },
-    async execute({ interaction, services }: CommandContext) {
-      requireUserPermissions(interaction.member as GuildMember, [PermissionFlagsBits.ManageGuild], 'module management');
-      const guild = guildOf(interaction);
-      const sub = interaction.options.getSubcommand(true);
-      const { MODULE_NAMES, moduleDefaults } = await import('@bot-by-ai/shared');
-      if (sub === 'list') {
-        const values = await services.settings.getAll(guild.id);
-        const lines = MODULE_NAMES.map((name) => {
-          const enabled = (values[name] as { enabled?: boolean } | undefined)?.enabled;
-          return `${enabled === true ? '🟢' : enabled === false ? '⚪' : '➖'} \`${name}\``;
-        });
-        await interaction.reply({
-          embeds: [
-            baseEmbed(COLORS.primary)
-              .setTitle('🧩 Modules')
-              .setDescription(lines.join('\n'))
-              .setFooter({ text: '➖ = module has no on/off switch (always available)' }),
-          ],
-        });
-        return;
-      }
-      const module = interaction.options.getString('module', true);
-      if (!MODULE_NAMES.includes(module as never)) throw new UserFacingError(`Unknown module \`${module}\`.`);
-      const defaults = moduleDefaults(module as never);
-      if (!('enabled' in defaults)) {
-        throw new UserFacingError(`The \`${module}\` module has no enable/disable switch.`);
-      }
-      await services.settings.update(
-        guild.id,
-        module as never,
-        { enabled: sub === 'enable' },
-        { actorId: interaction.user.id, source: 'command' },
-      );
-      await interaction.reply({
-        embeds: [successEmbed(`Module \`${module}\` ${sub === 'enable' ? 'enabled' : 'disabled'}.`)],
-      });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('helpmenu')
-      .setDescription('Interactive help menu with category navigation'),
-    async execute({ interaction, services }: CommandContext) {
-      const catalog = services.commandCatalog?.() ?? [];
-      const emojis: Record<string, string> = {
-        utility: '🧰',
-        moderation: '🔨',
-        security: '🛡️',
-        automod: '🤖',
-        economy: '💰',
-        levels: '📈',
-        tickets: '🎫',
-        community: '🎉',
-        welcome: '👋',
-        logging: '📜',
-        'reaction-roles': '🎭',
-        music: '🎵',
-        configuration: '⚙️',
-        owner: '👑',
-      };
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId('help:category')
-          .setPlaceholder('Choose a category')
-          .addOptions(
-            CATEGORIES.filter((category) => catalog.some((entry) => entry.category === category))
-              .slice(0, 25)
-              .map((category) => ({
-                label: category,
-                value: category,
-                emoji: emojis[category],
-              })),
-          ),
-      );
-      const message = await interaction
-        .reply({
-          embeds: [
-            baseEmbed(COLORS.primary)
-              .setTitle('📖 Help')
-              .setDescription(
-                `**${catalog.length}** commands available. Pick a category below, or use \`/help\` for the full list.`,
-              ),
-          ],
-          components: [row],
-          withResponse: true,
-        })
-        .then((response) => response.resource?.message ?? null);
-      if (!message) return;
-      const collector = message.createMessageComponentCollector({ time: 120_000 });
-      collector.on('collect', async (component) => {
-        if (!component.isStringSelectMenu()) return;
-        if (component.user.id !== interaction.user.id) {
-          await component.reply({ content: 'Run `/helpmenu` yourself to browse commands.', flags: MessageFlags.Ephemeral });
-          return;
-        }
-        const category = component.values[0] ?? 'utility';
-        const names = catalog.filter((entry) => entry.category === category).map((entry) => `\`/${entry.name}\``);
-        await component.update({
-          embeds: [
-            baseEmbed(COLORS.primary)
-              .setTitle(`${emojis[category] ?? '📁'} ${category}`)
-              .setDescription(names.join(' ') || 'No commands in this category.'),
-          ],
-        });
-      });
-      collector.on('end', async () => {
-        await interaction.editReply({ components: [] }).catch(() => {});
-      });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('afk')
-      .setDescription('Set an AFK status that is announced when you are mentioned')
-      .addSubcommand((sub) =>
-        sub
-          .setName('set')
-          .setDescription('Set your AFK status')
-          .addStringOption((option) => option.setName('reason').setDescription('Why are you away?'))
-          .addStringOption((option) => option.setName('until').setDescription('Optional return time, e.g. "2h"')),
-      )
-      .addSubcommand((sub) => sub.setName('clear').setDescription('Clear your AFK status'))
-      .addSubcommand((sub) => sub.setName('list').setDescription('List members currently registered as AFK')),
-    async execute({ interaction, services }: CommandContext) {
-      const guild = guildOf(interaction);
-      const sub = interaction.options.getSubcommand(true);
-      const stored = await services.settings.get<{ afkEntries?: Record<string, { reason: string; until: number | null }> }>(
-        guild.id,
-        'general',
-      );
-      const entries = { ...(stored.afkEntries ?? {}) };
-      if (sub === 'set') {
-        const reason = interaction.options.getString('reason') ?? 'AFK';
-        const untilRaw = interaction.options.getString('until');
-        const until = untilRaw ? parseDurationMs(untilRaw) : null;
-        entries[interaction.user.id] = { reason: truncate(reason, 200), until: until ? Date.now() + until : null };
-        await services.settings.update(
-          guild.id,
-          'general',
-          { afkEntries: entries },
-          { actorId: interaction.user.id, source: 'command' },
-        );
-        await interaction.reply({
-          embeds: [
-            successEmbed(
-              `AFK status set: **${truncate(reason, 200)}**${until ? ` until ${formatTimestamp(Date.now() + until)}` : ''}.`,
-            ),
-          ],
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-      if (sub === 'clear') {
-        delete entries[interaction.user.id];
-        await services.settings.update(guild.id, 'general', { afkEntries: entries }, { actorId: interaction.user.id, source: 'command' });
-        await interaction.reply({ embeds: [successEmbed('AFK status cleared.')], flags: MessageFlags.Ephemeral });
-        return;
-      }
-      const list = Object.entries(entries);
-      await interaction.reply({
-        embeds: [
-          baseEmbed(COLORS.primary)
-            .setTitle('💤 AFK members')
-            .setDescription(
-              list.length === 0
-                ? 'Nobody is marked as AFK.'
-                : list
-                    .map(
-                      ([userId, entry]) =>
-                        `<@${userId}> — ${entry.reason}${entry.until ? ` (until <t:${Math.floor(entry.until / 1000)}:R>)` : ''}`,
-                    )
-                    .join('\n'),
-            ),
-        ],
-        flags: MessageFlags.Ephemeral,
-      });
-    },
-  },
-  {
-    category: 'utility',
-    data: new SlashCommandBuilder()
-      .setName('render')
-      .setDescription('Preview how a template string renders with your details')
-      .addStringOption((option) => option.setName('template').setDescription('Template with {user} style variables').setRequired(true)),
-    async execute({ interaction }: CommandContext) {
-      const template = interaction.options.getString('template', true);
-      const result = renderTemplate(template, {
-        user: {
-          id: interaction.user.id,
-          username: interaction.user.username,
-          tag: interaction.user.tag,
-          mention: `<@${interaction.user.id}>`,
-        },
-        server: {
-          name: interaction.guild?.name ?? 'this server',
-          id: interaction.guildId ?? '',
-          memberCount: interaction.guild?.memberCount ?? 0,
-        },
-        channel: { name: 'name' in (interaction.channel ?? {}) ? String((interaction.channel as { name?: string }).name) : 'channel' },
-      });
-      await interaction.reply({
-        embeds: [
-          baseEmbed(COLORS.primary)
-            .setTitle('🧪 Template preview')
-            .setDescription(truncate(result.output || '(empty)', 4000))
-            .setFooter({
-              text:
-                result.unknownVariables.length > 0
-                  ? `Unknown variables left as-is: ${result.unknownVariables.join(', ')}`
-                  : 'All variables resolved',
-            }),
-        ],
-        flags: MessageFlags.Ephemeral,
-      });
+      requireUserPermissions(memberOf(interaction), [PermissionFlagsBits.ManageGuild], 'changing the prefix');
+      await services.settings.update(guild.id, 'general', { prefix: next }, { actorId: interaction.user.id, source: 'command' });
+      await interaction.reply({ embeds: [successEmbed(`Prefix changed to \`${next}\`.`)], flags: MessageFlags.Ephemeral });
     },
   },
 ]);

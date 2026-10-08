@@ -373,6 +373,17 @@ export class MusicService {
     player.nowPlayingMessageId = message?.id ?? null;
   }
 
+  /** Joins a voice channel without starting playback (used by `/music join`). */
+  async join(guild: Guild, voiceChannel: VoiceBasedChannel, textChannelId?: string): Promise<void> {
+    const player = await this.ensurePlayer(guild, voiceChannel);
+    if (textChannelId) player.textChannelId = textChannelId;
+  }
+
+  /** Leaves the voice channel and clears the queue for a guild. */
+  async leave(guildId: string): Promise<void> {
+    await this.destroy(guildId, true);
+  }
+
   async pause(guildId: string, pause: boolean): Promise<void> {
     const player = this.getPlayer(guildId);
     if (!player?.current) throw new UserFacingError('Nothing is playing right now.');

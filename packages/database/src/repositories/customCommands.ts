@@ -73,6 +73,16 @@ export class CustomCommandRepository {
     return rows[0] ?? null;
   }
 
+  /** Published + enabled global command, used by the runtime resolver. */
+  async getGlobalPublished(name: string): Promise<CustomCommandRow | null> {
+    const { rows } = await this.db.query<CustomCommandRow>(
+      `SELECT * FROM custom_commands
+        WHERE scope = 'global' AND published = TRUE AND enabled = TRUE AND lower(name) = lower($1)`,
+      [name],
+    );
+    return rows[0] ?? null;
+  }
+
   async deleteGlobal(name: string): Promise<boolean> {
     const { rowCount } = await this.db.query(
       `DELETE FROM custom_commands WHERE scope = 'global' AND lower(name) = lower($1)`,

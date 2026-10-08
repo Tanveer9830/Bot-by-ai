@@ -3,6 +3,7 @@ import {
   Events,
   MessageFlags,
   PermissionFlagsBits,
+  GuildMember,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Client,
@@ -18,6 +19,7 @@ import type { BotServices } from '../core/context.js';
 import { replyWithError } from '../core/resolvers.js';
 import { errorEmbed, successEmbed } from '../core/embeds.js';
 import { INTERACTION_PREFIXES } from '../core/constants.js';
+import { resolveCustomCommand, runCustomCommand } from '../core/customCommands.js';
 import type { TicketPanelDefinition } from '../services/tickets.js';
 
 /** Routes every interaction type to the right subsystem. */
@@ -69,16 +71,19 @@ async function handleChatInput(
 ): Promise<void> {
   const command = registry.get(interaction.commandName);
   if (!command) {
-    await interaction
-      .reply({
-        embeds: [
-          errorEmbed(
-            'That command is not available right now. Commands may have been updated — try again in a moment.',
-          ),
-        ],
-        flags: MessageFlags.Ephemeral,
-      })
-      .catch(() => {});
+    const handled = await handleCustomCommandInteraction(interaction, services);
+    if (!handled) {
+      await interaction
+        .reply({
+          embeds: [
+            errorEmbed(
+              'That command is not available right now. Commands may have been updated — try again in a moment.',
+            ),
+          ],
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(() => {});
+    }
     return;
   }
 
@@ -120,6 +125,88 @@ async function handleChatInput(
       })
       .catch(() => {});
   }
+}
+
+/**
+ * Executes a slash invocation of a custom command (guild-scoped or published
+ * global). The command must already be registered with Discord — see
+ * `scripts/deploy-commands.ts`, which merges database-backed custom commands
+ * into the registration payload.
+ */
+async function handleCustomCommandInteraction(
+  interaction: ChatInputCommandInteraction,
+  services: BotServices,
+): Promise<boolean> {
+  if (!interaction.inGuild() || !interaction.guild) return false;
+  const member = interaction.member;
+  if (!member || !(member instanceof GuildMember)) return false;
+
+  const name = interaction.commandName.toLowerCase();
+  const custom = await resolveCustomCommand(services, interaction.guild.id, name);
+  if (!custom) return false;
+
+  const cooldownKey = `custom:${custom.scope}:${custom.id}:${interaction.guild.id}:${interaction.user.id}`;
+  const payload = custom.payload as { cooldownSeconds?: number; ephemeral?: boolean };
+  const wait = services.cooldowns.remaining(cooldownKey);
+  if (wait > 0) {
+    await interaction
+      .reply({
+        content: `This command is on cooldown for another ${(wait / 1000).toFixed(1)}s.`,
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
+    return true;
+  }
+
+  try {
+    await interaction.deferReply({ flags: payload.ephemeral === true ? MessageFlags.Ephemeral : undefined });
+    services.cooldowns.consume(cooldownKey);
+    await runCustomCommand({
+      services,
+      guild: interaction.guild,
+      member,
+      command: custom,
+      args: interaction.options.data
+        .filter((option) => option.name !== undefined && option.type !== 1 && option.type !== 2)
+        .map((option) => String(option.value ?? ''))
+        .join(' '),
+      channelId: interaction.channelId,
+      ephemeralCapable: true,
+      respond: async ({ content, embeds, ephemeral }) => {
+        const flags = ephemeral ? MessageFlags.Ephemeral : undefined;
+        await interaction
+          .editReply({
+            ...(content ? { content } : {}),
+            ...(embeds && embeds.length > 0 ? { embeds } : {}),
+            ...(flags ? { flags } : {}),
+          } as Parameters<typeof interaction.editReply>[0])
+          .catch(() => {});
+      },
+    });
+    await services.repos.commandUsage
+      .record({
+        guildId: interaction.guildId,
+        userId: interaction.user.id,
+        commandName: `custom:${custom.name}`,
+        success: true,
+        errorCode: null,
+        durationMs: null,
+      })
+      .catch(() => {});
+  } catch (error) {
+    await services.repos.commandUsage
+      .record({
+        guildId: interaction.guildId,
+        userId: interaction.user.id,
+        commandName: `custom:${custom.name}`,
+        success: false,
+        errorCode: (error as { code?: string }).code ?? 'CUSTOM_FAILED',
+        durationMs: null,
+      })
+      .catch(() => {});
+    await replyWithError(interaction, error, services);
+  }
+  return true;
 }
 
 async function handleContextMenu(

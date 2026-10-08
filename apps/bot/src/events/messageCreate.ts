@@ -1,5 +1,6 @@
-import { ChannelType, Events, type Client, type GuildMember, type Message } from 'discord.js';
-import { evaluateNoTag, extractUserMentions, formatDuration, renderTemplate, type CustomCommandInput } from '@bot-by-ai/shared';
+import { Events, type Client, type GuildMember, type Message } from 'discord.js';
+import { evaluateNoTag, extractUserMentions, formatDuration } from '@bot-by-ai/shared';
+import { resolveCustomCommand, runCustomCommand } from '../core/customCommands.js';
 import type { BotServices } from '../core/context.js';
 import type { GeneralSettings, NoTagSettings } from '../services/types.js';
 
@@ -161,7 +162,13 @@ async function handleNoTag(message: Message<true>, member: GuildMember, services
     });
   }
 }
-
+/**
+ * Prefix custom commands.
+ *
+ * Guild-scoped commands win over global ones; published global commands are
+ * available in every server. Cooldowns are per user+command and pruned so the
+ * map cannot grow without bound.
+ */
 const customCommandCooldowns = new Map<string, number>();
 
 async function handleCustomCommand(message: Message<true>, member: GuildMember, services: BotServices): Promise<void> {
@@ -171,21 +178,14 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
   const [rawName, ...args] = message.content.slice(prefix.length).trim().split(/\s+/);
   if (!rawName) return;
   const name = rawName.toLowerCase();
-
-  // Slash commands are handled elsewhere; skip names the bot already owns.
-  const command = await services.repos.customCommands.getGuild(message.guild.id, name).catch(() => null);
-  if (!command || !command.enabled) return;
-
-  const payload = command.payload as unknown as CustomCommandInput;
   if (settings.disabledCommandNames.includes(name)) return;
-  if (payload.allowedChannelIds?.length && !payload.allowedChannelIds.includes(message.channelId)) return;
-  if (payload.allowedUserIds?.length && !payload.allowedUserIds.includes(member.id)) return;
-  if (payload.requiredRoleIds?.length && !payload.requiredRoleIds.some((roleId) => member.roles.cache.has(roleId))) {
-    await message.reply({ content: 'You do not have the required role to use that command.' }).catch(() => {});
-    return;
-  }
-  const cooldownKey = `${message.guild.id}:${member.id}:${name}`;
+
+  const command = await resolveCustomCommand(services, message.guild.id, name);
+  if (!command) return;
+
+  const payload = command.payload as { cooldownSeconds?: number };
   const cooldownMs = Math.max(0, (payload.cooldownSeconds ?? 3) * 1000);
+  const cooldownKey = `${command.scope}:${command.id}:${message.guild.id}:${member.id}`;
   const last = customCommandCooldowns.get(cooldownKey) ?? 0;
   if (Date.now() - last < cooldownMs) return;
   customCommandCooldowns.set(cooldownKey, Date.now());
@@ -193,71 +193,37 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
     for (const key of [...customCommandCooldowns.keys()].slice(0, 5_000)) customCommandCooldowns.delete(key);
   }
 
-  const rendered = renderTemplate(payload.response ?? '', {
-    user: {
-      id: member.id,
-      username: member.user.username,
-      tag: member.user.tag,
-      mention: `<@${member.id}>`,
-    },
-    server: { name: message.guild.name, id: message.guild.id, memberCount: message.guild.memberCount },
-    channel: {
-      name: message.channel.type === ChannelType.GuildText ? message.channel.name : 'channel',
-      mention: `<#${message.channelId}>`,
-    },
-    command: { name, args: args.join(' ') },
-  });
-
-  const embedSource = payload.embed;
-  const embed = embedSource
-    ? {
-        title: embedSource.title ?? undefined,
-        description: embedSource.description ? renderTemplate(embedSource.description, {
-          user: { id: member.id, username: member.user.username, tag: member.user.tag, mention: `<@${member.id}>` },
-          server: { name: message.guild.name, id: message.guild.id, memberCount: message.guild.memberCount },
-          command: { name, args: args.join(' ') },
-        }).output : undefined,
-        color: embedSource.color ?? undefined,
-        footer: embedSource.footer ? { text: embedSource.footer } : undefined,
-        fields: embedSource.fields?.map((field) => ({
-          name: field.name,
-          value: renderTemplate(field.value, {
-            user: { id: member.id, username: member.user.username, tag: member.user.tag, mention: `<@${member.id}>` },
-            server: { name: message.guild.name, id: message.guild.id, memberCount: message.guild.memberCount },
-            command: { name, args: args.join(' ') },
-          }).output,
-          inline: field.inline ?? false,
-        })),
-      }
-    : undefined;
-
-  await message
-    .reply({
-      content: rendered.output || undefined,
-      embeds: embed ? [embed] : undefined,
-      allowedMentions: { parse: [], repliedUser: false },
-    })
-    .catch(() => {});
-
-  for (const action of payload.actions ?? []) {
-    if (action.type === 'add_role' && action.roleId) {
-      const role = message.guild.roles.cache.get(action.roleId);
-      if (role && message.guild.members.me && role.position < message.guild.members.me.roles.highest.position) {
-        await member.roles.add(role, `Custom command ${name}`).catch(() => {});
-      }
-    } else if (action.type === 'remove_role' && action.roleId) {
-      const role = message.guild.roles.cache.get(action.roleId);
-      if (role && message.guild.members.me && role.position < message.guild.members.me.roles.highest.position) {
-        await member.roles.remove(role, `Custom command ${name}`).catch(() => {});
-      }
-    } else if (action.type === 'send_dm' && action.message) {
-      await member.send(action.message.slice(0, 1900)).catch(() => {});
-    }
+  try {
+    await runCustomCommand({
+      services,
+      guild: message.guild,
+      member,
+      command,
+      args: args.join(' '),
+      channelId: message.channelId,
+      ephemeralCapable: false,
+      respond: async ({ content, embeds }) => {
+        await message
+          .reply({
+            ...(content ? { content } : {}),
+            ...(embeds && embeds.length > 0 ? { embeds } : {}),
+            allowedMentions: { parse: [], repliedUser: false },
+          })
+          .catch(() => {});
+      },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    await message.reply({ content: `That command could not run: ${detail}` }).catch(() => {});
+    return;
   }
-  if (payload.deleteTrigger) {
+
+  const shouldDelete = (command.payload as { deleteTrigger?: boolean }).deleteTrigger === true;
+  if (shouldDelete) {
     const me = message.guild.members.me;
     const permissions = me && 'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
     if (permissions?.has('ManageMessages')) await message.delete().catch(() => {});
   }
-  await services.repos.customCommands.incrementUses(command.id).catch(() => {});
 }
+
+export { handleCustomCommand };

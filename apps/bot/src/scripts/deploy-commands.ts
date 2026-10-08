@@ -12,8 +12,15 @@
  */
 import { REST, Routes } from 'discord.js';
 import { createLogger, loadConfig } from '@bot-by-ai/shared';
+import { openDatabase } from '@bot-by-ai/database';
 import { CommandRegistry } from '../core/registry.js';
 import { GLOBAL_COMMAND_LIMIT } from '../core/command.js';
+
+interface RegistrationPayload {
+  name: string;
+  description: string;
+  type?: number;
+}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -29,7 +36,52 @@ async function main(): Promise<void> {
   logger.info('commands loaded', { loaded, validationIssues: issues.length });
   for (const issue of issues) logger.warn('validation issue', { ...issue });
 
-  const payload = registry.toJSON() as { name: string; description: string }[];
+  const payload = registry.toJSON() as RegistrationPayload[];
+  const names = new Set(payload.map((entry) => entry.name));
+
+  /**
+   * Database-backed custom commands are registered alongside the built-in ones
+   * so members get Discord's native autocomplete/validation. Global scope uses
+   * published owner commands; guild scope uses that guild's own commands.
+   */
+  if (process.env.SKIP_DB_COMMANDS !== 'true') {
+    const { db, repositories } = openDatabase({
+      url: config.database.url,
+      ssl: config.database.ssl,
+      max: 2,
+      applicationName: 'bot-by-ai-deploy',
+    });
+    try {
+      const auth = await db.health();
+      if (!auth.ok) {
+        logger.warn('database unreachable — deploying built-in commands only', { error: auth.error });
+      } else {
+        const rows = await repositories.customCommands.listNamesForRegistration();
+        let added = 0;
+        for (const row of rows) {
+          // Guild deployments also carry published global commands so the dev
+          // guild behaves exactly like production.
+          if (!useGlobal && row.scope === 'guild' && row.guild_id !== config.devGuildId) continue;
+          if (names.has(row.name)) {
+            logger.warn('skipping custom command that collides with a built-in name', { name: row.name });
+            continue;
+          }
+          names.add(row.name);
+          const description = row.description.slice(0, 100) || 'Custom command';
+          payload.push({ name: row.name, description, type: 1 });
+          added += 1;
+        }
+        logger.info('custom commands merged into registration', { added, scope: useGlobal ? 'global' : 'guild' });
+      }
+    } catch (error) {
+      logger.warn('could not read custom commands from the database', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      await db.close().catch(() => {});
+    }
+  }
+
   if (useGlobal && payload.length > GLOBAL_COMMAND_LIMIT) {
     logger.error('refusing to register: exceeds Discord global command limit', {
       count: payload.length,

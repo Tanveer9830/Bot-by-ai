@@ -87,6 +87,14 @@ export class SecurityRepository {
     return { rows, total: Number(rows[0]?.total ?? 0) };
   }
 
+  async findLatestEvent(guildId: string, kind: string): Promise<SecurityEventRow | null> {
+    const { rows } = await this.db.query<SecurityEventRow>(
+      `SELECT * FROM security_events WHERE guild_id = $1 AND kind = $2 ORDER BY created_at DESC LIMIT 1`,
+      [guildId, kind],
+    );
+    return rows[0] ?? null;
+  }
+
   async markHandled(guildId: string, eventId: number, handled = true): Promise<boolean> {
     const { rowCount } = await this.db.query(
       'UPDATE security_events SET handled = $3 WHERE id = $1 AND guild_id = $2',
@@ -102,6 +110,21 @@ export class SecurityRepository {
       [guildId],
     );
     return Number(rows[0]?.count ?? 0);
+  }
+
+  /** Guilds whose security lockdown is currently marked active (scheduler sweep). */
+  async listActiveLockdowns(): Promise<{ guild_id: string; until: number | null }[]> {
+    const { rows } = await this.db.query<{ guild_id: string; until: string | null; active: string }>(
+      `SELECT guild_id,
+              modules->'security'->'lockdown'->>'until' AS until,
+              modules->'security'->'lockdown'->>'active' AS active
+         FROM guild_settings
+        WHERE modules->'security'->'lockdown'->>'active' = 'true'`,
+    );
+    return rows.map((row) => ({
+      guild_id: row.guild_id,
+      until: row.until && /^\d+$/.test(row.until) ? Number(row.until) : null,
+    }));
   }
 
   // ------------------------------------------------- trusted entities (whitelist)

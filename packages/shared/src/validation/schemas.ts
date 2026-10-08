@@ -34,10 +34,26 @@ export const defaultEscalation = DEFAULT_ESCALATION;
 
 /* ------------------------------------------------------------------ modules */
 
+export const generalSettingsSchema = z.object({
+  prefix: z.string().min(1).max(5).default('!'),
+  locale: z.enum(['en']).default('en'),
+  timezoneOffsetMinutes: z.number().int().min(-720).max(840).default(0),
+  /** Command names disabled by server admins (both slash and prefix). */
+  disabledCommandNames: z.array(z.string().max(32)).max(200).default([]),
+  disabledModules: z.array(z.string().max(32)).max(50).default([]),
+  /** Roles granted to every bot that joins the server. */
+  botRoleIds: snowflakeListSchema.default([]),
+  deleteCommandMessages: z.boolean().default(false),
+  /** Send unexpected errors to the owners' DM (disabled by default). */
+  dmErrorsToOwners: z.boolean().default(false),
+});
+
 export const welcomeSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   channelId: snowflakeSchema.nullish(),
   message: z.string().max(2000).default('Welcome {user} to **{server}**! You are member #{membercount}.'),
+  /** Optional embed title; falls back to "Welcome to {server}". */
+  title: z.string().max(256).nullish(),
   useEmbed: z.boolean().default(true),
   embedColor: hexColorSchema.default(0x5865f2),
   imageUrl: z.string().url().nullish(),
@@ -479,9 +495,23 @@ export type GlobalCommandInput = z.infer<typeof globalCommandSchema>;
 
 /* ------------------------------------------------------------------ exports */
 
+export const boostSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  channelId: snowflakeSchema.nullish(),
+  message: z.string().max(2000).default('🚀 {user} just boosted **{server}** — thank you!'),
+  useEmbed: z.boolean().default(true),
+  embedColor: hexColorSchema.default(0xf47fff),
+  /** Temporary role granted while the boost is active. */
+  roleId: snowflakeSchema.nullish(),
+  dmEnabled: z.boolean().default(false),
+  dmMessage: z.string().max(2000).nullish(),
+});
+
 export const MODULE_SCHEMAS = {
+  general: generalSettingsSchema,
   welcome: welcomeSettingsSchema,
   leave: leaveSettingsSchema,
+  boost: boostSettingsSchema,
   logging: loggingSettingsSchema,
   automod: automodSettingsSchema,
   security: securitySettingsSchema,

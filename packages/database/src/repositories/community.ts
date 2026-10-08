@@ -251,10 +251,11 @@ export class CommunityRepository {
       upvotes: number;
       downvotes: number;
       created_at: Date;
+      staff_response: string | null;
     }[]
   > {
     const { rows } = await this.db.query(
-      `SELECT id, user_id, content, status, upvotes, downvotes, created_at FROM suggestions
+      `SELECT id, user_id, content, status, upvotes, downvotes, created_at, staff_response FROM suggestions
         WHERE guild_id = $1 ${options.status ? 'AND status = $3' : ''}
         ORDER BY created_at DESC LIMIT $2`,
       options.status ? [guildId, Math.min(options.limit ?? 20, 100), options.status] : [guildId, Math.min(options.limit ?? 20, 100)],
@@ -422,15 +423,32 @@ export class CommunityRepository {
     );
   }
 
+  /**
+   * Birthdays in the next 60 days, ordered by proximity.
+   *
+   * The day distance is computed in SQL so the order is correct across year
+   * boundaries (a January birthday is "next" in December).
+   */
   async upcomingBirthdays(
     guildId: string,
     limit = 10,
-  ): Promise<{ user_id: string; month: number; day: number }[]> {
-    const { rows } = await this.db.query<{ user_id: string; month: number; day: number }>(
-      `SELECT user_id, month, day FROM birthdays WHERE guild_id = $1 ORDER BY month, day LIMIT $2`,
+  ): Promise<{ user_id: string; month: number; day: number; days_until: number }[]> {
+    const { rows } = await this.db.query<{ user_id: string; month: number; day: number; days_until: number }>(
+      `SELECT user_id, month, day, days_until FROM (
+         SELECT user_id, month, day,
+                ((make_date(
+                    EXTRACT(YEAR FROM (now() AT TIME ZONE 'UTC'))::int
+                      + CASE WHEN make_date(EXTRACT(YEAR FROM (now() AT TIME ZONE 'UTC'))::int, month, day)
+                                  < (now() AT TIME ZONE 'UTC')::date THEN 1 ELSE 0 END,
+                    month, day) - (now() AT TIME ZONE 'UTC')::date
+                 )) AS days_until
+           FROM birthdays WHERE guild_id = $1
+       ) ranked
+       WHERE days_until >= 0 AND days_until <= 60
+       ORDER BY days_until ASC LIMIT $2`,
       [guildId, Math.min(Math.max(limit, 1), 50)],
     );
-    return rows;
+    return rows.map((row) => ({ ...row, days_until: Number(row.days_until) }));
   }
 
   // ---------------------------------------------------------------- reminders
@@ -466,21 +484,23 @@ export class CommunityRepository {
   }
 
   async listUserReminders(
-    guildId: string,
+    guildId: string | null,
     userId: string,
     limit = 20,
   ): Promise<{ id: number; content: string; remind_at: Date; status: string }[]> {
     const { rows } = await this.db.query(
       `SELECT id, content, remind_at, status FROM reminders
-        WHERE guild_id = $1 AND user_id = $2 AND status = 'pending' ORDER BY remind_at ASC LIMIT $3`,
+        WHERE guild_id IS NOT DISTINCT FROM $1 AND user_id = $2 AND status = 'pending'
+        ORDER BY remind_at ASC LIMIT $3`,
       [guildId, userId, Math.min(Math.max(limit, 1), 50)],
     );
     return rows as never;
   }
 
-  async cancelReminder(guildId: string, userId: string, id: number): Promise<boolean> {
+  async cancelReminder(guildId: string | null, userId: string, id: number): Promise<boolean> {
     const { rowCount } = await this.db.query(
-      `UPDATE reminders SET status = 'cancelled' WHERE id = $1 AND guild_id = $2 AND user_id = $3 AND status = 'pending'`,
+      `UPDATE reminders SET status = 'cancelled'
+        WHERE id = $1 AND guild_id IS NOT DISTINCT FROM $2 AND user_id = $3 AND status = 'pending'`,
       [id, guildId, userId],
     );
     return (rowCount ?? 0) > 0;

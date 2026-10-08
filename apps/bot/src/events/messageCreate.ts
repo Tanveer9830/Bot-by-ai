@@ -17,7 +17,8 @@ export function registerMessageEvents(client: Client, services: BotServices): vo
   client.on(Events.MessageCreate, async (message: Message) => {
     if (!message.inGuild() || message.author.bot || message.system) return;
     const guild = message.guild;
-    const member = message.member ?? (await guild.members.fetch(message.author.id).catch(() => null));
+    const member =
+      message.member ?? (await guild.members.fetch(message.author.id).catch(() => null));
     if (!member) return;
 
     try {
@@ -75,7 +76,11 @@ export function registerMessageEvents(client: Client, services: BotServices): vo
   });
 }
 
-async function handleNoTag(message: Message<true>, member: GuildMember, services: BotServices): Promise<void> {
+async function handleNoTag(
+  message: Message<true>,
+  member: GuildMember,
+  services: BotServices,
+): Promise<void> {
   const settings = await services.settings.get<NoTagSettings>(message.guild.id, 'notag');
   if (!settings.enabled || settings.protectedUserIds.length === 0) return;
 
@@ -112,7 +117,8 @@ async function handleNoTag(message: Message<true>, member: GuildMember, services
 
   if (decision.shouldDelete) {
     const me = message.guild.members.me;
-    const permissions = me && 'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
+    const permissions =
+      me && 'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
     if (permissions?.has('ManageMessages')) {
       await message.delete().catch(() => {});
     }
@@ -127,7 +133,10 @@ async function handleNoTag(message: Message<true>, member: GuildMember, services
   }
   if (decision.shouldTimeout && settings.timeoutMs > 0) {
     const me = message.guild.members.me;
-    if (me?.permissions.has('ModerateMembers') && member.roles.highest.position < me.roles.highest.position) {
+    if (
+      me?.permissions.has('ModerateMembers') &&
+      member.roles.highest.position < me.roles.highest.position
+    ) {
       await member.timeout(settings.timeoutMs, 'No-tag violation').catch(() => {});
     }
   }
@@ -171,7 +180,11 @@ async function handleNoTag(message: Message<true>, member: GuildMember, services
  */
 const customCommandCooldowns = new Map<string, number>();
 
-async function handleCustomCommand(message: Message<true>, member: GuildMember, services: BotServices): Promise<void> {
+async function handleCustomCommand(
+  message: Message<true>,
+  member: GuildMember,
+  services: BotServices,
+): Promise<void> {
   const settings = await services.settings.get<GeneralSettings>(message.guild.id, 'general');
   const prefix = settings.prefix || '!';
   if (!message.content.startsWith(prefix)) return;
@@ -190,7 +203,8 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
   if (Date.now() - last < cooldownMs) return;
   customCommandCooldowns.set(cooldownKey, Date.now());
   if (customCommandCooldowns.size > 10_000) {
-    for (const key of [...customCommandCooldowns.keys()].slice(0, 5_000)) customCommandCooldowns.delete(key);
+    for (const key of [...customCommandCooldowns.keys()].slice(0, 5_000))
+      customCommandCooldowns.delete(key);
   }
 
   try {
@@ -221,7 +235,8 @@ async function handleCustomCommand(message: Message<true>, member: GuildMember, 
   const shouldDelete = (command.payload as { deleteTrigger?: boolean }).deleteTrigger === true;
   if (shouldDelete) {
     const me = message.guild.members.me;
-    const permissions = me && 'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
+    const permissions =
+      me && 'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
     if (permissions?.has('ManageMessages')) await message.delete().catch(() => {});
   }
 }

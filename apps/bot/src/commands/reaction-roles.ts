@@ -33,7 +33,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function actor(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   return member;
 }
 
@@ -58,14 +59,36 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('create')
           .setDescription('Create a panel and post it in a channel')
-          .addStringOption((option) => option.setName('key').setDescription('Unique panel key (a-z0-9-)').setRequired(true).setMaxLength(32))
-          .addChannelOption((option) =>
-            option.setName('channel').setDescription('Channel for the panel').setRequired(true).addChannelTypes(ChannelType.GuildText),
+          .addStringOption((option) =>
+            option
+              .setName('key')
+              .setDescription('Unique panel key (a-z0-9-)')
+              .setRequired(true)
+              .setMaxLength(32),
           )
-          .addStringOption((option) => option.setName('title').setDescription('Panel title').setRequired(true).setMaxLength(256))
-          .addRoleOption((option) => option.setName('role').setDescription('Role to grant').setRequired(true))
-          .addStringOption((option) => option.setName('label').setDescription('Button label (defaults to the role name)'))
-          .addStringOption((option) => option.setName('emoji').setDescription('Optional emoji shown on the button'))
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel for the panel')
+              .setRequired(true)
+              .addChannelTypes(ChannelType.GuildText),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('title')
+              .setDescription('Panel title')
+              .setRequired(true)
+              .setMaxLength(256),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role to grant').setRequired(true),
+          )
+          .addStringOption((option) =>
+            option.setName('label').setDescription('Button label (defaults to the role name)'),
+          )
+          .addStringOption((option) =>
+            option.setName('emoji').setDescription('Optional emoji shown on the button'),
+          )
           .addStringOption((option) =>
             option
               .setName('description')
@@ -76,54 +99,112 @@ export const commands: BotCommand[] = defineCommands([
             option
               .setName('mode')
               .setDescription('How members pick roles')
-              .addChoices({ name: 'buttons', value: 'button' }, { name: 'select menu', value: 'select' }, { name: 'reactions', value: 'reaction' }),
+              .addChoices(
+                { name: 'buttons', value: 'button' },
+                { name: 'select menu', value: 'select' },
+                { name: 'reactions', value: 'reaction' },
+              ),
           )
-          .addBooleanOption((option) => option.setName('exclusive').setDescription('Only one role from this panel may be held at a time')),
+          .addBooleanOption((option) =>
+            option
+              .setName('exclusive')
+              .setDescription('Only one role from this panel may be held at a time'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('edit')
           .setDescription('Change a panel’s title, description or mode and repost it')
-          .addStringOption((option) => option.setName('key').setDescription('Panel key').setRequired(true).setAutocomplete(true))
-          .addStringOption((option) => option.setName('title').setDescription('New title').setMaxLength(256))
-          .addStringOption((option) => option.setName('description').setDescription('New description').setMaxLength(1000))
+          .addStringOption((option) =>
+            option
+              .setName('key')
+              .setDescription('Panel key')
+              .setRequired(true)
+              .setAutocomplete(true),
+          )
+          .addStringOption((option) =>
+            option.setName('title').setDescription('New title').setMaxLength(256),
+          )
+          .addStringOption((option) =>
+            option.setName('description').setDescription('New description').setMaxLength(1000),
+          )
           .addStringOption((option) =>
             option
               .setName('mode')
               .setDescription('New mode')
-              .addChoices({ name: 'buttons', value: 'button' }, { name: 'select menu', value: 'select' }, { name: 'reactions', value: 'reaction' }),
+              .addChoices(
+                { name: 'buttons', value: 'button' },
+                { name: 'select menu', value: 'select' },
+                { name: 'reactions', value: 'reaction' },
+              ),
           )
-          .addBooleanOption((option) => option.setName('exclusive').setDescription('Only one role from this panel may be held at a time')),
+          .addBooleanOption((option) =>
+            option
+              .setName('exclusive')
+              .setDescription('Only one role from this panel may be held at a time'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('add')
           .setDescription('Add a role option to a panel')
-          .addStringOption((option) => option.setName('key').setDescription('Panel key').setRequired(true).setAutocomplete(true))
-          .addRoleOption((option) => option.setName('role').setDescription('Role to grant').setRequired(true))
+          .addStringOption((option) =>
+            option
+              .setName('key')
+              .setDescription('Panel key')
+              .setRequired(true)
+              .setAutocomplete(true),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role to grant').setRequired(true),
+          )
           .addStringOption((option) => option.setName('label').setDescription('Button label'))
-          .addStringOption((option) => option.setName('emoji').setDescription('Emoji (required for reaction mode)'))
-          .addStringOption((option) => option.setName('description').setDescription('Short description (select menus only)')),
+          .addStringOption((option) =>
+            option.setName('emoji').setDescription('Emoji (required for reaction mode)'),
+          )
+          .addStringOption((option) =>
+            option.setName('description').setDescription('Short description (select menus only)'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('remove')
           .setDescription('Remove a role option from a panel')
-          .addStringOption((option) => option.setName('key').setDescription('Panel key').setRequired(true).setAutocomplete(true))
-          .addRoleOption((option) => option.setName('role').setDescription('Role option to remove').setRequired(true)),
+          .addStringOption((option) =>
+            option
+              .setName('key')
+              .setDescription('Panel key')
+              .setRequired(true)
+              .setAutocomplete(true),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role option to remove').setRequired(true),
+          ),
       )
       .addSubcommand((sub) => sub.setName('list').setDescription('List every panel in this server'))
       .addSubcommand((sub) =>
         sub
           .setName('resend')
           .setDescription('Repost a panel (useful after editing the message away)')
-          .addStringOption((option) => option.setName('key').setDescription('Panel key').setRequired(true).setAutocomplete(true)),
+          .addStringOption((option) =>
+            option
+              .setName('key')
+              .setDescription('Panel key')
+              .setRequired(true)
+              .setAutocomplete(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('delete')
           .setDescription('Delete a panel and its message')
-          .addStringOption((option) => option.setName('key').setDescription('Panel key').setRequired(true).setAutocomplete(true)),
+          .addStringOption((option) =>
+            option
+              .setName('key')
+              .setDescription('Panel key')
+              .setRequired(true)
+              .setAutocomplete(true),
+          ),
       ),
     autocomplete: async ({ interaction, services }) => {
       const guildId = interaction.guildId;
@@ -137,7 +218,10 @@ export const commands: BotCommand[] = defineCommands([
         panels
           .filter((panel) => panel.panel_key.toLowerCase().includes(focused))
           .slice(0, 25)
-          .map((panel) => ({ name: `${panel.panel_key} — ${panel.mode}${panel.enabled ? '' : ' (disabled)'}`, value: panel.panel_key })),
+          .map((panel) => ({
+            name: `${panel.panel_key} — ${panel.mode}${panel.enabled ? '' : ' (disabled)'}`,
+            value: panel.panel_key,
+          })),
       );
     },
     async execute({ interaction, services }: CommandContext) {
@@ -147,7 +231,9 @@ export const commands: BotCommand[] = defineCommands([
       const sub = interaction.options.getSubcommand(true);
       const me = guild.members.me;
       if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
-        throw new UserFacingError('I need the **Manage Roles** permission to manage reaction roles.');
+        throw new UserFacingError(
+          'I need the **Manage Roles** permission to manage reaction roles.',
+        );
       }
 
       const loadPanel = async (key: string) => {
@@ -163,7 +249,11 @@ export const commands: BotCommand[] = defineCommands([
           panels,
           (panel) =>
             `**${panel.panel_key}** \`${panel.mode}\` ${panel.enabled ? '' : '(disabled) '}— <#${panel.channel_id}>${panel.message_id ? ` • [message](https://discord.com/channels/${guild.id}/${panel.channel_id}/${panel.message_id})` : ''}`,
-          { title: `🎭 Reaction role panels (${panels.length})`, pageSize: 10, emptyMessage: 'No panels yet — create one with `/reactionrole create`.' },
+          {
+            title: `🎭 Reaction role panels (${panels.length})`,
+            pageSize: 10,
+            emptyMessage: 'No panels yet — create one with `/reactionrole create`.',
+          },
         );
         return;
       }
@@ -187,24 +277,36 @@ export const commands: BotCommand[] = defineCommands([
           }
         }
         await services.repos.community.deleteReactionRolePanel(guild.id, key);
-        await interaction.editReply({ embeds: [successEmbed(`Panel \`${key}\` deleted.`)], components: [] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Panel \`${key}\` deleted.`)],
+          components: [],
+        });
         return;
       }
 
       if (sub === 'create') {
         const key = interaction.options.getString('key', true).toLowerCase();
-        if (!/^[a-z0-9-]{1,32}$/.test(key)) throw new UserFacingError('Panel keys may only contain a-z, 0-9 and dashes.');
-        if (await loadPanel(key)) throw new UserFacingError(`Panel \`${key}\` already exists — use \`/reactionrole add\` or \`edit\`.`);
+        if (!/^[a-z0-9-]{1,32}$/.test(key))
+          throw new UserFacingError('Panel keys may only contain a-z, 0-9 and dashes.');
+        if (await loadPanel(key))
+          throw new UserFacingError(
+            `Panel \`${key}\` already exists — use \`/reactionrole add\` or \`edit\`.`,
+          );
         const channel = interaction.options.getChannel('channel', true);
         const role = interaction.options.getRole('role', true);
-        const mode = (interaction.options.getString('mode') ?? 'button') as 'button' | 'select' | 'reaction';
+        const mode = (interaction.options.getString('mode') ?? 'button') as
+          'button' | 'select' | 'reaction';
         const exclusive = interaction.options.getBoolean('exclusive') ?? false;
         const title = truncate(interaction.options.getString('title', true), 256);
         const description = interaction.options.getString('description');
         const label = interaction.options.getString('label') ?? role.name;
         const emoji = normaliseEmoji(interaction.options.getString('emoji'));
-        if (mode === 'reaction' && !emoji) throw new UserFacingError('Reaction mode needs an `emoji` so members know what to click.');
-        if (role.position >= (me.roles.highest.position ?? 0)) throw new UserFacingError('That role is above my highest role.');
+        if (mode === 'reaction' && !emoji)
+          throw new UserFacingError(
+            'Reaction mode needs an `emoji` so members know what to click.',
+          );
+        if (role.position >= (me.roles.highest.position ?? 0))
+          throw new UserFacingError('That role is above my highest role.');
         const options: PanelOption[] = [{ label, roleId: role.id, emoji, description: null }];
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const messageId = await postPanel(guild, channel as TextChannel, {
@@ -230,14 +332,29 @@ export const commands: BotCommand[] = defineCommands([
           {
             enabled: true,
             panels: [
-              ...(await services.settings.get<{ panels: unknown[] }>(guild.id, 'reactionRoles')).panels.slice(0, 24),
-              { id: key, channelId: channel.id, messageId, mode, title, description: description ?? null, options, exclusive },
+              ...(
+                await services.settings.get<{ panels: unknown[] }>(guild.id, 'reactionRoles')
+              ).panels.slice(0, 24),
+              {
+                id: key,
+                channelId: channel.id,
+                messageId,
+                mode,
+                title,
+                description: description ?? null,
+                options,
+                exclusive,
+              },
             ],
           },
           { actorId: interaction.user.id, source: 'command' },
         );
         await interaction.editReply({
-          embeds: [successEmbed(`Panel \`${key}\` created in <#${channel.id}> with 1 option. Add more with \`/reactionrole add key:${key}\`.`)],
+          embeds: [
+            successEmbed(
+              `Panel \`${key}\` created in <#${channel.id}> with 1 option. Add more with \`/reactionrole add key:${key}\`.`,
+            ),
+          ],
         });
         return;
       }
@@ -248,15 +365,20 @@ export const commands: BotCommand[] = defineCommands([
       if (!panel) throw new UserFacingError(`No panel with key \`${key}\`.`);
       const options = (panel.options as PanelOption[] | null) ?? [];
       const channel = await guild.channels.fetch(panel.channel_id).catch(() => null);
-      if (!channel || !channel.isTextBased() || channel.isDMBased()) throw new UserFacingError('The panel channel no longer exists.');
+      if (!channel || !channel.isTextBased() || channel.isDMBased())
+        throw new UserFacingError('The panel channel no longer exists.');
 
       if (sub === 'add') {
         const role = interaction.options.getRole('role', true);
-        if (options.some((option) => option.roleId === role.id)) throw new UserFacingError(`<@&${role.id}> is already an option on this panel.`);
-        if (options.length >= 25) throw new UserFacingError('A panel can hold at most 25 options (Discord limit).');
-        if (role.position >= (me.roles.highest.position ?? 0)) throw new UserFacingError('That role is above my highest role.');
+        if (options.some((option) => option.roleId === role.id))
+          throw new UserFacingError(`<@&${role.id}> is already an option on this panel.`);
+        if (options.length >= 25)
+          throw new UserFacingError('A panel can hold at most 25 options (Discord limit).');
+        if (role.position >= (me.roles.highest.position ?? 0))
+          throw new UserFacingError('That role is above my highest role.');
         const emoji = normaliseEmoji(interaction.options.getString('emoji'));
-        if (panel.mode === 'reaction' && !emoji) throw new UserFacingError('Reaction panels need an emoji per option.');
+        if (panel.mode === 'reaction' && !emoji)
+          throw new UserFacingError('Reaction panels need an emoji per option.');
         const next = [
           ...options,
           {
@@ -267,7 +389,14 @@ export const commands: BotCommand[] = defineCommands([
           },
         ];
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        await repost(guild, channel as TextChannel, panel.message_id, { key, mode: panel.mode as 'button' | 'select' | 'reaction', title: key, description: null, options: next, exclusive: panel.exclusive });
+        await repost(guild, channel as TextChannel, panel.message_id, {
+          key,
+          mode: panel.mode as 'button' | 'select' | 'reaction',
+          title: key,
+          description: null,
+          options: next,
+          exclusive: panel.exclusive,
+        });
         await services.repos.community.upsertReactionRolePanel({
           guildId: guild.id,
           panelKey: key,
@@ -276,17 +405,32 @@ export const commands: BotCommand[] = defineCommands([
           options: next,
           exclusive: panel.exclusive,
         });
-        await interaction.editReply({ embeds: [successEmbed(`Added <@&${role.id}> to panel \`${key}\` (${next.length} option(s)).`)] });
+        await interaction.editReply({
+          embeds: [
+            successEmbed(`Added <@&${role.id}> to panel \`${key}\` (${next.length} option(s)).`),
+          ],
+        });
         return;
       }
 
       if (sub === 'remove') {
         const role = interaction.options.getRole('role', true);
         const next = options.filter((option) => option.roleId !== role.id);
-        if (next.length === options.length) throw new UserFacingError(`<@&${role.id}> is not on that panel.`);
-        if (next.length === 0) throw new UserFacingError('A panel needs at least one option — delete the panel instead.');
+        if (next.length === options.length)
+          throw new UserFacingError(`<@&${role.id}> is not on that panel.`);
+        if (next.length === 0)
+          throw new UserFacingError(
+            'A panel needs at least one option — delete the panel instead.',
+          );
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        await repost(guild, channel as TextChannel, panel.message_id, { key, mode: panel.mode as 'button' | 'select' | 'reaction', title: key, description: null, options: next, exclusive: panel.exclusive });
+        await repost(guild, channel as TextChannel, panel.message_id, {
+          key,
+          mode: panel.mode as 'button' | 'select' | 'reaction',
+          title: key,
+          description: null,
+          options: next,
+          exclusive: panel.exclusive,
+        });
         await services.repos.community.upsertReactionRolePanel({
           guildId: guild.id,
           panelKey: key,
@@ -295,7 +439,13 @@ export const commands: BotCommand[] = defineCommands([
           options: next,
           exclusive: panel.exclusive,
         });
-        await interaction.editReply({ embeds: [successEmbed(`Removed <@&${role.id}> from panel \`${key}\`. Members keep the role until they remove it themselves.`)] });
+        await interaction.editReply({
+          embeds: [
+            successEmbed(
+              `Removed <@&${role.id}> from panel \`${key}\`. Members keep the role until they remove it themselves.`,
+            ),
+          ],
+        });
         return;
       }
 
@@ -350,7 +500,13 @@ export const commands: BotCommand[] = defineCommands([
         exclusive: nextExclusive,
         messageId,
       });
-      await interaction.editReply({ embeds: [successEmbed(`Panel \`${key}\` updated (mode \`${nextMode}\`${nextExclusive ? ', exclusive' : ''}).`)] });
+      await interaction.editReply({
+        embeds: [
+          successEmbed(
+            `Panel \`${key}\` updated (mode \`${nextMode}\`${nextExclusive ? ', exclusive' : ''}).`,
+          ),
+        ],
+      });
     },
   },
 ]);
@@ -398,7 +554,11 @@ function buildComponents(panel: PanelDefinition) {
   return rows;
 }
 
-async function postPanel(guild: Guild, channel: TextChannel, panel: PanelDefinition): Promise<string> {
+async function postPanel(
+  guild: Guild,
+  channel: TextChannel,
+  panel: PanelDefinition,
+): Promise<string> {
   const embed = baseEmbed(COLORS.primary)
     .setTitle(truncate(panel.title, 256))
     .setDescription(

@@ -25,7 +25,9 @@ export class CommandRegistry {
   }
 
   list(): BotCommand[] {
-    return [...this.commands.values()].sort((a, b) => a.data.toJSON().name.localeCompare(b.data.toJSON().name));
+    return [...this.commands.values()].sort((a, b) =>
+      a.data.toJSON().name.localeCompare(b.data.toJSON().name),
+    );
   }
 
   get(name: string): BotCommand | undefined {
@@ -44,18 +46,25 @@ export class CommandRegistry {
     this.commands.set(name, command);
   }
 
-  async loadFrom(directory?: string): Promise<{ loaded: number; issues: CommandValidationIssue[] }> {
+  async loadFrom(
+    directory?: string,
+  ): Promise<{ loaded: number; issues: CommandValidationIssue[] }> {
     const base = directory ?? resolve(here, '../commands');
     const entries = await readdir(base, { withFileTypes: true }).catch(() => []);
     const files = entries
-      .filter((entry) => entry.isFile() && /\.(ts|js)$/.test(entry.name) && !entry.name.endsWith('.d.ts'))
+      .filter(
+        (entry) => entry.isFile() && /\.(ts|js)$/.test(entry.name) && !entry.name.endsWith('.d.ts'),
+      )
       .map((entry) => entry.name)
       .sort();
 
     for (const file of files) {
       const modulePath = pathToFileURL(join(base, file)).href;
       try {
-        const mod = (await import(modulePath)) as { commands?: BotCommand[]; default?: BotCommand[] };
+        const mod = (await import(modulePath)) as {
+          commands?: BotCommand[];
+          default?: BotCommand[];
+        };
         const exported = mod.commands ?? mod.default ?? [];
         if (!Array.isArray(exported) || exported.length === 0) {
           this.logger.warn('command module exported no commands', { file });
@@ -71,7 +80,10 @@ export class CommandRegistry {
           this.register(command);
         }
       } catch (error) {
-        this.issues.push({ command: file, issue: error instanceof Error ? error.message : String(error) });
+        this.issues.push({
+          command: file,
+          issue: error instanceof Error ? error.message : String(error),
+        });
         this.logger.error('failed to load command module', {
           file,
           error: error instanceof Error ? error.message : String(error),

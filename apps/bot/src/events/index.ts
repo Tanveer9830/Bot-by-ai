@@ -7,7 +7,11 @@ import { registerMessageEvents } from './messageCreate.js';
 import { registerGuildEvents } from './guildEvents.js';
 
 /** Wires every gateway event to its handler exactly once. */
-export function registerEvents(client: Client, registry: CommandRegistry, services: BotServices): void {
+export function registerEvents(
+  client: Client,
+  registry: CommandRegistry,
+  services: BotServices,
+): void {
   registerInteractionEvents(client, registry, services);
   registerMessageEvents(client, services);
   registerGuildEvents(client, services);

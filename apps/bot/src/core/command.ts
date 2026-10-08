@@ -12,9 +12,7 @@ import type { CommandCategory } from './constants.js';
 import type { Logger } from '@bot-by-ai/shared';
 
 export type AnySlashBuilder =
-  | SlashCommandBuilder
-  | SlashCommandOptionsOnlyBuilder
-  | SlashCommandSubcommandsOnlyBuilder;
+  SlashCommandBuilder | SlashCommandOptionsOnlyBuilder | SlashCommandSubcommandsOnlyBuilder;
 
 export interface CommandContext {
   interaction: ChatInputCommandInteraction;
@@ -29,7 +27,9 @@ export interface AutocompleteContext {
   services: BotServices;
 }
 
-export interface ContextMenuContext<T extends UserContextMenuCommandInteraction | MessageContextMenuCommandInteraction> {
+export interface ContextMenuContext<
+  T extends UserContextMenuCommandInteraction | MessageContextMenuCommandInteraction,
+> {
   interaction: T;
   services: BotServices;
   logger: Logger;
@@ -112,7 +112,10 @@ export function validateCommand(command: BotCommand): CommandValidationIssue[] {
     names.add(option.name);
   }
   if (options.length > 25) {
-    issues.push({ command: name, issue: `Discord allows at most 25 top-level options (found ${options.length})` });
+    issues.push({
+      command: name,
+      issue: `Discord allows at most 25 top-level options (found ${options.length})`,
+    });
   }
   for (const option of options) {
     if (option.type === 1 || option.type === 2) {

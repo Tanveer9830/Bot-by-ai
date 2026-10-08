@@ -28,7 +28,10 @@ export function shuffle<T>(items: readonly T[], rng: () => number = Math.random)
 }
 
 /** Weighted pick used for giveaways with bonus entries. */
-export function weightedPick<T>(entries: readonly { item: T; weight: number }[], rng = Math.random): T | undefined {
+export function weightedPick<T>(
+  entries: readonly { item: T; weight: number }[],
+  rng = Math.random,
+): T | undefined {
   const total = entries.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
   if (total <= 0) return undefined;
   let roll = rng() * total;

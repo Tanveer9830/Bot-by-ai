@@ -21,7 +21,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function requireAutomodAccess(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   requireUserPermissions(member, [PermissionFlagsBits.ManageGuild], 'automod configuration');
   return member;
 }
@@ -33,14 +34,26 @@ export const commands: BotCommand[] = defineCommands([
       .setName('automod')
       .setDescription('Configure automatic message filtering')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the current automod configuration'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the current automod configuration'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('enable')
           .setDescription('Enable automod with sensible defaults')
-          .addBooleanOption((option) => option.setName('block_invites').setDescription('Block Discord invite links (default: yes)'))
-          .addBooleanOption((option) => option.setName('block_links').setDescription('Block all links'))
-          .addBooleanOption((option) => option.setName('block_zalgo').setDescription('Block combining-character spam (default: yes)')),
+          .addBooleanOption((option) =>
+            option
+              .setName('block_invites')
+              .setDescription('Block Discord invite links (default: yes)'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('block_links').setDescription('Block all links'),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName('block_zalgo')
+              .setDescription('Block combining-character spam (default: yes)'),
+          ),
       )
       .addSubcommand((sub) => sub.setName('disable').setDescription('Disable automod'))
       .addSubcommand((sub) =>
@@ -59,21 +72,71 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'set', value: 'set' },
               ),
           )
-          .addStringOption((option) => option.setName('words').setDescription('Comma separated words (or a regex when regex mode is on)')),
+          .addStringOption((option) =>
+            option
+              .setName('words')
+              .setDescription('Comma separated words (or a regex when regex mode is on)'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('config')
           .setDescription('Tune detection thresholds')
-          .addIntegerOption((option) => option.setName('spam_messages').setDescription('Messages allowed per spam window').setMinValue(0).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('spam_window_seconds').setDescription('Spam window length').setMinValue(1).setMaxValue(300))
-          .addIntegerOption((option) => option.setName('max_mentions').setDescription('Max mentions per message (0 disables)').setMinValue(0).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('caps_percent').setDescription('Uppercase percentage threshold').setMinValue(0).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('max_emojis').setDescription('Max emojis per message (0 disables)').setMinValue(0).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('duplicate_limit').setDescription('Repeated messages allowed before action').setMinValue(0).setMaxValue(50))
-          .addBooleanOption((option) => option.setName('regex_words').setDescription('Treat the word list as regular expressions'))
-          .addBooleanOption((option) => option.setName('warn_author').setDescription('Warn the author on a violation'))
-          .addStringOption((option) => option.setName('allowed_domains').setDescription('Comma separated domains that are always allowed')),
+          .addIntegerOption((option) =>
+            option
+              .setName('spam_messages')
+              .setDescription('Messages allowed per spam window')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('spam_window_seconds')
+              .setDescription('Spam window length')
+              .setMinValue(1)
+              .setMaxValue(300),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('max_mentions')
+              .setDescription('Max mentions per message (0 disables)')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('caps_percent')
+              .setDescription('Uppercase percentage threshold')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('max_emojis')
+              .setDescription('Max emojis per message (0 disables)')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('duplicate_limit')
+              .setDescription('Repeated messages allowed before action')
+              .setMinValue(0)
+              .setMaxValue(50),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName('regex_words')
+              .setDescription('Treat the word list as regular expressions'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('warn_author').setDescription('Warn the author on a violation'),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('allowed_domains')
+              .setDescription('Comma separated domains that are always allowed'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -84,17 +147,33 @@ export const commands: BotCommand[] = defineCommands([
               .setName('type')
               .setDescription('What to exempt')
               .setRequired(true)
-              .addChoices({ name: 'user', value: 'user' }, { name: 'role', value: 'role' }, { name: 'channel', value: 'channel' }),
+              .addChoices(
+                { name: 'user', value: 'user' },
+                { name: 'role', value: 'role' },
+                { name: 'channel', value: 'channel' },
+              ),
           )
           .addUserOption((option) => option.setName('user').setDescription('User'))
           .addRoleOption((option) => option.setName('role').setDescription('Role'))
-          .addChannelOption((option) => option.setName('channel').setDescription('Channel').addChannelTypes(ChannelType.GuildText)),
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel')
+              .addChannelTypes(ChannelType.GuildText),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('escalation')
           .setDescription('Configure the punishment ladder')
-          .addIntegerOption((option) => option.setName('violations').setDescription('Violation count that triggers this step').setRequired(true).setMinValue(1).setMaxValue(1000))
+          .addIntegerOption((option) =>
+            option
+              .setName('violations')
+              .setDescription('Violation count that triggers this step')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(1000),
+          )
           .addStringOption((option) =>
             option
               .setName('action')
@@ -108,12 +187,26 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'ban', value: 'ban' },
               ),
           )
-          .addStringOption((option) => option.setName('timeout_duration').setDescription('Required when action=timeout, e.g. 10m'))
-          .addBooleanOption((option) => option.setName('reset').setDescription('Replace the whole ladder with this single step')),
+          .addStringOption((option) =>
+            option
+              .setName('timeout_duration')
+              .setDescription('Required when action=timeout, e.g. 10m'),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName('reset')
+              .setDescription('Replace the whole ladder with this single step'),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('violations').setDescription('Show recent automod violations'))
-      .addSubcommand((sub) => sub.setName('test').setDescription('Test the current filters against a sample message'))
-      .addSubcommand((sub) => sub.setName('logs').setDescription('Show recorded violations for a member')),
+      .addSubcommand((sub) =>
+        sub.setName('violations').setDescription('Show recent automod violations'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('test').setDescription('Test the current filters against a sample message'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('logs').setDescription('Show recorded violations for a member'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       requireAutomodAccess(interaction);
@@ -132,22 +225,44 @@ export const commands: BotCommand[] = defineCommands([
               .setTitle('🤖 AutoMod configuration')
               .addFields(
                 { name: 'Enabled', value: settings.enabled ? 'yes' : 'no', inline: true },
-                { name: 'Spam', value: `${settings.spamMessageLimit} msgs / ${formatDuration(settings.spamWindowMs)}`, inline: true },
-                { name: 'Duplicates', value: `${settings.duplicateLimit} / ${formatDuration(settings.duplicateWindowMs)}`, inline: true },
+                {
+                  name: 'Spam',
+                  value: `${settings.spamMessageLimit} msgs / ${formatDuration(settings.spamWindowMs)}`,
+                  inline: true,
+                },
+                {
+                  name: 'Duplicates',
+                  value: `${settings.duplicateLimit} / ${formatDuration(settings.duplicateWindowMs)}`,
+                  inline: true,
+                },
                 { name: 'Max mentions', value: String(settings.maxMentions), inline: true },
                 { name: 'Caps threshold', value: `${settings.capsPercent}%`, inline: true },
                 { name: 'Max emojis', value: String(settings.maxEmojis), inline: true },
-                { name: 'Block invites', value: settings.blockInvites ? 'yes' : 'no', inline: true },
+                {
+                  name: 'Block invites',
+                  value: settings.blockInvites ? 'yes' : 'no',
+                  inline: true,
+                },
                 { name: 'Block links', value: settings.blockLinks ? 'yes' : 'no', inline: true },
                 { name: 'Zalgo filter', value: settings.blockZalgo ? 'yes' : 'no', inline: true },
-                { name: `Blocked words (${settings.blockedWords.length})`, value: settings.blockedWords.slice(0, 20).map((word) => `\`${word}\``).join(' ') || 'none' },
+                {
+                  name: `Blocked words (${settings.blockedWords.length})`,
+                  value:
+                    settings.blockedWords
+                      .slice(0, 20)
+                      .map((word) => `\`${word}\``)
+                      .join(' ') || 'none',
+                },
                 {
                   name: 'Escalation ladder',
                   value:
                     settings.escalation.length === 0
                       ? 'default (delete → warn → timeout → kick → ban)'
                       : settings.escalation
-                          .map((step) => `${step.threshold}× → ${step.action}${step.durationMs ? ` (${formatDuration(step.durationMs)})` : ''}`)
+                          .map(
+                            (step) =>
+                              `${step.threshold}× → ${step.action}${step.durationMs ? ` (${formatDuration(step.durationMs)})` : ''}`,
+                          )
                           .join('\n'),
                 },
               ),
@@ -187,7 +302,10 @@ export const commands: BotCommand[] = defineCommands([
             embeds: [
               baseEmbed(COLORS.primary)
                 .setTitle(`🚫 Blocked words (${settings.blockedWords.length})`)
-                .setDescription(settings.blockedWords.map((word) => `\`${word}\``).join(' ') || 'The list is empty.'),
+                .setDescription(
+                  settings.blockedWords.map((word) => `\`${word}\``).join(' ') ||
+                    'The list is empty.',
+                ),
             ],
             flags: MessageFlags.Ephemeral,
           });
@@ -199,14 +317,25 @@ export const commands: BotCommand[] = defineCommands([
           .map((word) => word.trim())
           .filter((word) => word.length > 0);
         if (action === 'set') {
-          await update({ blockedWords: entries, blockedWordsAsRegex: settings.blockedWordsAsRegex });
+          await update({
+            blockedWords: entries,
+            blockedWordsAsRegex: settings.blockedWordsAsRegex,
+          });
         } else if (action === 'add') {
-          await update({ blockedWords: [...new Set([...settings.blockedWords, ...entries])].slice(0, 1000) });
+          await update({
+            blockedWords: [...new Set([...settings.blockedWords, ...entries])].slice(0, 1000),
+          });
         } else {
-          await update({ blockedWords: settings.blockedWords.filter((word) => !entries.includes(word)) });
+          await update({
+            blockedWords: settings.blockedWords.filter((word) => !entries.includes(word)),
+          });
         }
         await interaction.reply({
-          embeds: [successEmbed(`Blocked word list updated (action: \`${action}\`, ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}).`)],
+          embeds: [
+            successEmbed(
+              `Blocked word list updated (action: \`${action}\`, ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}).`,
+            ),
+          ],
         });
         return;
       }
@@ -251,11 +380,16 @@ export const commands: BotCommand[] = defineCommands([
         } else if (type === 'role' && role) {
           await update({ exemptRoleIds: [...new Set([...settings.exemptRoleIds, role.id])] });
         } else if (type === 'channel' && channel) {
-          await update({ exemptChannelIds: [...new Set([...settings.exemptChannelIds, channel.id])] });
+          await update({
+            exemptChannelIds: [...new Set([...settings.exemptChannelIds, channel.id])],
+          });
         } else {
           throw new UserFacingError(`Provide the \`${type}\` option.`);
         }
-        await interaction.reply({ embeds: [successEmbed(`Added an automod exemption for ${type}.`)], flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          embeds: [successEmbed(`Added an automod exemption for ${type}.`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
 
@@ -268,13 +402,22 @@ export const commands: BotCommand[] = defineCommands([
         if (action === 'timeout') {
           const { parseDurationMs } = await import('@bot-by-ai/shared');
           const parsed = timeoutRaw ? parseDurationMs(timeoutRaw) : null;
-          if (parsed === null) throw new UserFacingError('Provide `timeout_duration` (e.g. `10m`) when the action is timeout.');
+          if (parsed === null)
+            throw new UserFacingError(
+              'Provide `timeout_duration` (e.g. `10m`) when the action is timeout.',
+            );
           durationMs = parsed;
         }
-        const step = { threshold: violations, action: action as 'delete' | 'warn' | 'timeout' | 'kick' | 'ban', ...(durationMs ? { durationMs } : {}) };
+        const step = {
+          threshold: violations,
+          action: action as 'delete' | 'warn' | 'timeout' | 'kick' | 'ban',
+          ...(durationMs ? { durationMs } : {}),
+        };
         const ladder = reset
           ? [step]
-          : [...settings.escalation.filter((entry) => entry.threshold !== violations), step].sort((a, b) => a.threshold - b.threshold);
+          : [...settings.escalation.filter((entry) => entry.threshold !== violations), step].sort(
+              (a, b) => a.threshold - b.threshold,
+            );
         await update({ escalation: ladder });
         await interaction.reply({
           embeds: [
@@ -287,7 +430,10 @@ export const commands: BotCommand[] = defineCommands([
       }
 
       if (sub === 'violations') {
-        const violations = await services.repos.security.listEvents(guild.id, { kinds: ['automod'], limit: 25 });
+        const violations = await services.repos.security.listEvents(guild.id, {
+          kinds: ['automod'],
+          limit: 25,
+        });
         await interaction.reply({
           embeds: [
             baseEmbed(COLORS.primary)
@@ -296,7 +442,10 @@ export const commands: BotCommand[] = defineCommands([
                 violations.rows.length === 0
                   ? 'No automod violations recorded yet.'
                   : violations.rows
-                      .map((row) => `#${row.id} — ${row.description.slice(0, 180)} (<t:${Math.floor(row.created_at.getTime() / 1000)}:R>)`)
+                      .map(
+                        (row) =>
+                          `#${row.id} — ${row.description.slice(0, 180)} (<t:${Math.floor(row.created_at.getTime() / 1000)}:R>)`,
+                      )
                       .join('\n\n'),
               ),
           ],
@@ -334,7 +483,10 @@ export const commands: BotCommand[] = defineCommands([
         return;
       }
 
-      const violations = await services.repos.security.listEvents(guild.id, { kinds: ['automod'], limit: 25 });
+      const violations = await services.repos.security.listEvents(guild.id, {
+        kinds: ['automod'],
+        limit: 25,
+      });
       await interaction.reply({
         embeds: [
           baseEmbed(COLORS.primary)

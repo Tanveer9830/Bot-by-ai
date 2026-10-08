@@ -23,7 +23,11 @@ import { resolveCustomCommand, runCustomCommand } from '../core/customCommands.j
 import type { TicketPanelDefinition } from '../services/tickets.js';
 
 /** Routes every interaction type to the right subsystem. */
-export function registerInteractionEvents(client: Client, registry: CommandRegistry, services: BotServices): void {
+export function registerInteractionEvents(
+  client: Client,
+  registry: CommandRegistry,
+  services: BotServices,
+): void {
   client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     try {
       if (interaction.isChatInputCommand()) {
@@ -159,7 +163,9 @@ async function handleCustomCommandInteraction(
   }
 
   try {
-    await interaction.deferReply({ flags: payload.ephemeral === true ? MessageFlags.Ephemeral : undefined });
+    await interaction.deferReply({
+      flags: payload.ephemeral === true ? MessageFlags.Ephemeral : undefined,
+    });
     services.cooldowns.consume(cooldownKey);
     await runCustomCommand({
       services,
@@ -216,7 +222,10 @@ async function handleContextMenu(
   // Context menus are owner-only diagnostics unless a specific handler is added.
   if (!services.owners.isOwner(interaction.user.id)) {
     await interaction
-      .reply({ content: 'That context menu action is restricted to bot owners.', flags: MessageFlags.Ephemeral })
+      .reply({
+        content: 'That context menu action is restricted to bot owners.',
+        flags: MessageFlags.Ephemeral,
+      })
       .catch(() => {});
     return;
   }
@@ -245,7 +254,7 @@ async function handleButton(interaction: ButtonInteraction, services: BotService
       await handleSuggestionButton(interaction, services);
       return;
     case INTERACTION_PREFIXES.reactionRole:
-      await handleReactionRole(interaction, services, interaction.customId.split(':')[2] ?? '');
+      await handleReactionRole(interaction, services, [interaction.customId.split(':')[2] ?? '']);
       return;
     case INTERACTION_PREFIXES.help:
       await interaction
@@ -259,7 +268,10 @@ async function handleButton(interaction: ButtonInteraction, services: BotService
     case INTERACTION_PREFIXES.confirm:
       // These are handled by their own collectors; a click here means it expired.
       await interaction
-        .reply({ content: 'This menu has expired — run the command again.', flags: MessageFlags.Ephemeral })
+        .reply({
+          content: 'This menu has expired — run the command again.',
+          flags: MessageFlags.Ephemeral,
+        })
         .catch(() => {});
       return;
     default:
@@ -273,16 +285,25 @@ async function handleButton(interaction: ButtonInteraction, services: BotService
   }
 }
 
-async function handleTicketButton(interaction: ButtonInteraction, services: BotServices): Promise<void> {
+async function handleTicketButton(
+  interaction: ButtonInteraction,
+  services: BotServices,
+): Promise<void> {
   const [, action, ...rest] = interaction.customId.split(':');
   const guild = interaction.guild;
   if (!guild) {
-    await interaction.reply({ content: 'Tickets only work inside a server.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: 'Tickets only work inside a server.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await interaction.reply({ content: 'Could not resolve your membership.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: 'Could not resolve your membership.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
@@ -290,7 +311,9 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
     if (action === 'open') {
       const [panelId, categoryKey] = rest;
       const settings = await services.tickets.getSettings(guild.id);
-      const panel = (settings.panels as TicketPanelDefinition[]).find((entry) => entry.id === panelId);
+      const panel = (settings.panels as TicketPanelDefinition[]).find(
+        (entry) => entry.id === panelId,
+      );
       if (!panel) throw new UserFacingError('That ticket panel is no longer configured.');
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const { ticket, channel } = await services.tickets.open({
@@ -301,7 +324,11 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
         reason: null,
       });
       await interaction.editReply({
-        embeds: [successEmbed(`Your ticket has been created: <#${channel.id}> (ticket #${ticket.ticket_number}).`)],
+        embeds: [
+          successEmbed(
+            `Your ticket has been created: <#${channel.id}> (ticket #${ticket.ticket_number}).`,
+          ),
+        ],
       });
       return;
     }
@@ -319,7 +346,9 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
       if (!isStaff) throw new PermissionError('Only the support team can claim tickets.');
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await services.tickets.claim(guild, ticketNumber, member);
-      await interaction.editReply({ embeds: [successEmbed(`You claimed ticket #${ticketNumber}.`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`You claimed ticket #${ticketNumber}.`)],
+      });
       const ticket = await services.repos.tickets.getByNumber(guild.id, ticketNumber);
       if (ticket) {
         const channel = await guild.channels.fetch(ticket.channel_id).catch(() => null);
@@ -336,7 +365,8 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
       const ticket = await services.repos.tickets.getByNumber(guild.id, ticketNumber);
       if (!ticket) throw new UserFacingError('Ticket not found.');
       const ownsIt = ticket.user_id === member.id;
-      if (!isStaff && !ownsIt) throw new PermissionError('Only the ticket owner or support team can close this ticket.');
+      if (!isStaff && !ownsIt)
+        throw new PermissionError('Only the ticket owner or support team can close this ticket.');
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const result = await services.tickets.close({
         guild,
@@ -346,13 +376,21 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
         deleteChannel: false,
       });
       await interaction.editReply({
-        embeds: [successEmbed(`Ticket #${ticketNumber} closed. Transcript messages: ${result.transcript ? 'saved' : 'not recorded'}.`)],
+        embeds: [
+          successEmbed(
+            `Ticket #${ticketNumber} closed. Transcript messages: ${result.transcript ? 'saved' : 'not recorded'}.`,
+          ),
+        ],
       });
       const channel = await guild.channels.fetch(ticket.channel_id).catch(() => null);
       if (channel?.isTextBased()) {
         await channel
           .send({
-            embeds: [successEmbed(`This ticket was closed by <@${member.id}>. Staff can reopen it with \`/ticket reopen\`.`)],
+            embeds: [
+              successEmbed(
+                `This ticket was closed by <@${member.id}>. Staff can reopen it with \`/ticket reopen\`.`,
+              ),
+            ],
           })
           .catch(() => {});
       }
@@ -367,7 +405,12 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
       const { text, lines } = await services.tickets.buildTranscript(ticket, member);
       await interaction.editReply({
         content: `Transcript for ticket #${ticketNumber} (${lines.length} messages):`,
-        files: [{ attachment: Buffer.from(text || 'No messages recorded.', 'utf8'), name: `ticket-${ticketNumber}.txt` }],
+        files: [
+          {
+            attachment: Buffer.from(text || 'No messages recorded.', 'utf8'),
+            name: `ticket-${ticketNumber}.txt`,
+          },
+        ],
       });
       return;
     }
@@ -378,16 +421,25 @@ async function handleTicketButton(interaction: ButtonInteraction, services: BotS
   }
 }
 
-async function handleGiveawayButton(interaction: ButtonInteraction, services: BotServices): Promise<void> {
+async function handleGiveawayButton(
+  interaction: ButtonInteraction,
+  services: BotServices,
+): Promise<void> {
   const [, action, idRaw] = interaction.customId.split(':');
   const guild = interaction.guild;
   if (!guild || action !== 'enter') {
-    await interaction.reply({ content: 'That giveaway button is not valid.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: 'That giveaway button is not valid.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    await interaction.reply({ content: 'Could not resolve your membership.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: 'Could not resolve your membership.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
   try {
@@ -407,18 +459,27 @@ async function handleGiveawayButton(interaction: ButtonInteraction, services: Bo
   }
 }
 
-async function handleSuggestionButton(interaction: ButtonInteraction, services: BotServices): Promise<void> {
+async function handleSuggestionButton(
+  interaction: ButtonInteraction,
+  services: BotServices,
+): Promise<void> {
   const [, direction, idRaw] = interaction.customId.split(':');
   const suggestionId = Number(idRaw);
   if (!Number.isFinite(suggestionId)) {
-    await interaction.reply({ content: 'That suggestion button is malformed.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      content: 'That suggestion button is malformed.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
   const vote = direction === 'up' ? 1 : -1;
   try {
     let result;
     if (interaction.message.reactions.cache.size >= 0 && interaction.customId.includes('toggle')) {
-      result = await services.repos.community.deleteSuggestionVote(suggestionId, interaction.user.id);
+      result = await services.repos.community.deleteSuggestionVote(
+        suggestionId,
+        interaction.user.id,
+      );
     } else {
       result = await services.community.voteSuggestion({
         suggestionId,
@@ -435,56 +496,94 @@ async function handleSuggestionButton(interaction: ButtonInteraction, services: 
   }
 }
 
+/**
+ * Toggles one or more roles from a reaction-role button/select.
+ *
+ * - buttons send a single role id and behave as a toggle;
+ * - select menus send every chosen role; each one is toggled, and on an
+ *   `exclusive` panel every other panel role is removed afterwards.
+ */
 async function handleReactionRole(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   services: BotServices,
-  roleId: string,
+  roleIds: readonly string[],
 ): Promise<void> {
   const guild = interaction.guild;
   if (!guild) return;
-  const role = await guild.roles.fetch(roleId).catch(() => null);
-  if (!role) {
-    await interaction.reply({ content: 'That role no longer exists.', flags: MessageFlags.Ephemeral });
+  const requested = [...new Set(roleIds.filter((id) => /^\d{17,20}$/.test(id)))];
+  if (requested.length === 0) {
+    await interaction
+      .reply({
+        content: 'That selection does not map to a role any more.',
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
     return;
   }
+
   const me = guild.members.me;
-  if (me && role.position >= me.roles.highest.position) {
-    await interaction.reply({
-      content: 'I cannot manage that role because it is higher than my highest role.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
   const member = await guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) return;
-  const has = member.roles.cache.has(role.id);
-  try {
-    if (has) {
-      await member.roles.remove(role, 'Reaction role removed');
-    } else {
-      await member.roles.add(role, 'Reaction role granted');
-      if (interaction.isStringSelectMenu()) {
-        const panel = await services.repos.community.findReactionRolePanelByMessage(interaction.message.id);
-        if (panel?.exclusive) {
-          const options = panel.options as { roleId: string }[];
-          for (const option of options) {
-            if (option.roleId !== role.id && member.roles.cache.has(option.roleId)) {
-              await member.roles.remove(option.roleId, 'Exclusive reaction role swap').catch(() => {});
-            }
-          }
-        }
+
+  const added: string[] = [];
+  const removed: string[] = [];
+  const skipped: string[] = [];
+
+  for (const roleId of requested) {
+    const role = await guild.roles.fetch(roleId).catch(() => null);
+    if (!role || (me && role.position >= me.roles.highest.position)) {
+      skipped.push(roleId);
+      continue;
+    }
+    try {
+      if (member.roles.cache.has(role.id)) {
+        await member.roles.remove(role, 'Reaction role removed');
+        removed.push(role.id);
+      } else {
+        await member.roles.add(role, 'Reaction role granted');
+        added.push(role.id);
+      }
+    } catch {
+      skipped.push(role.id);
+    }
+  }
+
+  // Exclusive panels: only one role from the panel may be held at a time.
+  if (interaction.isStringSelectMenu() && added.length > 0) {
+    const panel = await services.repos.community
+      .findReactionRolePanelByMessage(interaction.message.id)
+      .catch(() => null);
+    if (panel?.exclusive) {
+      const options = (panel.options ?? []) as { roleId: string }[];
+      for (const option of options) {
+        if (requested.includes(option.roleId)) continue;
+        if (!member.roles.cache.has(option.roleId)) continue;
+        await member.roles.remove(option.roleId, 'Exclusive reaction role swap').catch(() => {});
       }
     }
-    await interaction.reply({
-      content: has ? `Removed <@&${role.id}>.` : `Added <@&${role.id}>.`,
-      flags: MessageFlags.Ephemeral,
-    });
-  } catch (error) {
-    await replyWithError(interaction as unknown as ChatInputCommandInteraction, error, services);
   }
+
+  const lines = [
+    added.length > 0 ? `Added ${added.map((id) => `<@&${id}>`).join(', ')}` : null,
+    removed.length > 0 ? `Removed ${removed.map((id) => `<@&${id}>`).join(', ')}` : null,
+    skipped.length > 0
+      ? `Skipped ${skipped.length} role(s) I cannot manage (they are above my highest role).`
+      : null,
+  ].filter(Boolean);
+
+  await interaction
+    .reply({
+      content: lines.join('\n') || 'Nothing changed.',
+      flags: MessageFlags.Ephemeral,
+    })
+    .catch(() => {});
 }
 
-async function handleVerification(interaction: ButtonInteraction, services: BotServices, panelId: string): Promise<void> {
+async function handleVerification(
+  interaction: ButtonInteraction,
+  services: BotServices,
+  panelId: string,
+): Promise<void> {
   const guild = interaction.guild;
   if (!guild) return;
   const settings = await services.settings.get<{ autoRoleIds: string[] }>(guild.id, 'welcome');
@@ -509,16 +608,26 @@ async function handleVerification(interaction: ButtonInteraction, services: BotS
   });
 }
 
-async function handleSelect(interaction: StringSelectMenuInteraction, services: BotServices): Promise<void> {
-  const [prefix, , roleId] = interaction.customId.split(':');
-  if (prefix === INTERACTION_PREFIXES.reactionRole) {
-    await handleReactionRole(interaction, services, roleId ?? interaction.values[0] ?? '');
+async function handleSelect(
+  interaction: StringSelectMenuInteraction,
+  services: BotServices,
+): Promise<void> {
+  const [prefix, kind] = interaction.customId.split(':');
+  if (prefix === INTERACTION_PREFIXES.reactionRole && kind === 'select') {
+    // The third segment is the *panel key* — the roles the member picked are in
+    // `values`. Passing the panel key here used to hand the handler a bogus role id.
+    await handleReactionRole(interaction, services, interaction.values);
     return;
   }
-  await interaction.reply({ content: 'That menu is no longer active.', flags: MessageFlags.Ephemeral }).catch(() => {});
+  await interaction
+    .reply({ content: 'That menu is no longer active.', flags: MessageFlags.Ephemeral })
+    .catch(() => {});
 }
 
-async function handleModal(interaction: ModalSubmitInteraction, services: BotServices): Promise<void> {
+async function handleModal(
+  interaction: ModalSubmitInteraction,
+  services: BotServices,
+): Promise<void> {
   const [prefix, action] = interaction.customId.split(':');
   if (prefix === INTERACTION_PREFIXES.ticket && action === 'open') {
     const guild = interaction.guild;
@@ -529,7 +638,10 @@ async function handleModal(interaction: ModalSubmitInteraction, services: BotSer
     const settings = await services.tickets.getSettings(guild.id);
     const panel = (settings.panels as TicketPanelDefinition[])[0];
     if (!panel) {
-      await interaction.reply({ content: 'No ticket panel is configured.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({
+        content: 'No ticket panel is configured.',
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -541,13 +653,17 @@ async function handleModal(interaction: ModalSubmitInteraction, services: BotSer
         categoryKey: panel.categories[0]?.key ?? 'general',
         reason,
       });
-      await interaction.editReply({ embeds: [successEmbed(`Ticket #${ticket.ticket_number} created: <#${channel.id}>`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`Ticket #${ticket.ticket_number} created: <#${channel.id}>`)],
+      });
     } catch (error) {
       await replyWithError(interaction as unknown as ChatInputCommandInteraction, error, services);
     }
     return;
   }
-  await interaction.reply({ content: 'That form is no longer active.', flags: MessageFlags.Ephemeral }).catch(() => {});
+  await interaction
+    .reply({ content: 'That form is no longer active.', flags: MessageFlags.Ephemeral })
+    .catch(() => {});
 }
 
 export function isThreadOrTextChannel(type: ChannelType): boolean {

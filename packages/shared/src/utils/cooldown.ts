@@ -85,7 +85,10 @@ export class RateLimiter {
 
   constructor(private readonly options: RateLimiterOptions) {}
 
-  check(key: string, now = Date.now()): { allowed: boolean; remaining: number; retryAfterMs: number } {
+  check(
+    key: string,
+    now = Date.now(),
+  ): { allowed: boolean; remaining: number; retryAfterMs: number } {
     const timestamps = (this.hits.get(key) ?? []).filter((ts) => now - ts < this.options.windowMs);
     if (timestamps.length >= this.options.limit) {
       const oldest = timestamps[0] as number;

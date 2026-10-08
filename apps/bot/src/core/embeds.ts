@@ -37,7 +37,9 @@ export function securityEmbed(description: string, title = 'Security event'): Em
 }
 
 export function fieldValue(lines: (string | null | undefined | false)[]): string {
-  const filtered = lines.filter((line): line is string => typeof line === 'string' && line.length > 0);
+  const filtered = lines.filter(
+    (line): line is string => typeof line === 'string' && line.length > 0,
+  );
   return filtered.length > 0 ? filtered.join('\n') : '—';
 }
 
@@ -48,7 +50,10 @@ export function keyValue(
   for (const entry of entries) {
     embed.addFields({
       name: truncate(entry.key, 256),
-      value: truncate(entry.value === null || entry.value === undefined ? '—' : String(entry.value), 1024),
+      value: truncate(
+        entry.value === null || entry.value === undefined ? '—' : String(entry.value),
+        1024,
+      ),
       inline: entry.inline ?? true,
     });
   }

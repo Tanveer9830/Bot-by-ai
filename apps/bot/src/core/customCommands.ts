@@ -13,7 +13,12 @@
  *  - role changes are clamped to roles below the bot's highest role.
  */
 import { EmbedBuilder, type Guild, type GuildMember } from 'discord.js';
-import { renderTemplate, sanitizeMentions, UserFacingError, type CustomCommandInput } from '@bot-by-ai/shared';
+import {
+  renderTemplate,
+  sanitizeMentions,
+  UserFacingError,
+  type CustomCommandInput,
+} from '@bot-by-ai/shared';
 import type { CustomCommandRow } from '@bot-by-ai/database';
 import type { BotServices } from './context.js';
 
@@ -45,7 +50,11 @@ export interface CustomCommandRun {
   /** True when the invocation supports ephemeral replies (slash commands). */
   ephemeralCapable: boolean;
   /** Sends the rendered response. `ephemeral` is honoured only when supported. */
-  respond: (payload: { content?: string; embeds?: EmbedBuilder[]; ephemeral: boolean }) => Promise<void>;
+  respond: (payload: {
+    content?: string;
+    embeds?: EmbedBuilder[];
+    ephemeral: boolean;
+  }) => Promise<void>;
 }
 
 /** Throws `UserFacingError` for permission/cooldown problems, returns the payload otherwise. */
@@ -57,7 +66,10 @@ export function assertCustomCommandAllowed(run: CustomCommandRun): CustomCommand
   if (payload.allowedUserIds?.length && !payload.allowedUserIds.includes(run.member.id)) {
     throw new UserFacingError('This command is not available to you.');
   }
-  if (payload.requiredRoleIds?.length && !payload.requiredRoleIds.some((roleId) => run.member.roles.cache.has(roleId))) {
+  if (
+    payload.requiredRoleIds?.length &&
+    !payload.requiredRoleIds.some((roleId) => run.member.roles.cache.has(roleId))
+  ) {
     throw new UserFacingError('You do not have a role required to use this command.');
   }
   return payload;
@@ -69,7 +81,8 @@ function buildEmbed(payload: CustomCommandInput, run: CustomCommandRun): EmbedBu
   const context = templateContext(run);
   const embed = new EmbedBuilder();
   if (source.title) embed.setTitle(renderTemplate(source.title, context).output.slice(0, 256));
-  if (source.description) embed.setDescription(renderTemplate(source.description, context).output.slice(0, 4096));
+  if (source.description)
+    embed.setDescription(renderTemplate(source.description, context).output.slice(0, 4096));
   if (typeof source.color === 'number') embed.setColor(source.color);
   if (source.footer) embed.setFooter({ text: source.footer.slice(0, 200) });
   if (source.thumbnailUrl) embed.setThumbnail(source.thumbnailUrl);
@@ -84,8 +97,7 @@ function buildEmbed(payload: CustomCommandInput, run: CustomCommandRun): EmbedBu
 }
 
 function templateContext(run: CustomCommandRun) {
-  const channelName =
-    run.guild.channels.cache.get(run.channelId)?.name ?? 'channel';
+  const channelName = run.guild.channels.cache.get(run.channelId)?.name ?? 'channel';
   return {
     user: {
       id: run.member.id,
@@ -122,13 +134,17 @@ export async function runCustomCommand(run: CustomCommandRun): Promise<void> {
       const role = run.guild.roles.cache.get(action.roleId);
       const me = run.guild.members.me;
       if (role && me && role.position < me.roles.highest.position) {
-        await run.member.roles.add(role, `Custom command ${run.command.name}`).catch(() => undefined);
+        await run.member.roles
+          .add(role, `Custom command ${run.command.name}`)
+          .catch(() => undefined);
       }
     } else if (action.type === 'remove_role' && action.roleId) {
       const role = run.guild.roles.cache.get(action.roleId);
       const me = run.guild.members.me;
       if (role && me && role.position < me.roles.highest.position) {
-        await run.member.roles.remove(role, `Custom command ${run.command.name}`).catch(() => undefined);
+        await run.member.roles
+          .remove(role, `Custom command ${run.command.name}`)
+          .catch(() => undefined);
       }
     } else if (action.type === 'send_dm' && action.message) {
       await run.member
@@ -145,7 +161,8 @@ export function describePayload(payload: Record<string, unknown>): string {
   const parsed = payload as unknown as CustomCommandInput;
   const parts = [`response: ${parsed.response ? `${parsed.response.length} chars` : 'none'}`];
   if (parsed.embed) parts.push('embed: yes');
-  if (parsed.actions?.length) parts.push(`actions: ${parsed.actions.map((action) => action.type).join(', ')}`);
+  if (parsed.actions?.length)
+    parts.push(`actions: ${parsed.actions.map((action) => action.type).join(', ')}`);
   if (parsed.requiredRoleIds?.length) parts.push(`roles: ${parsed.requiredRoleIds.length}`);
   if (parsed.allowedChannelIds?.length) parts.push(`channels: ${parsed.allowedChannelIds.length}`);
   return parts.join(' • ');

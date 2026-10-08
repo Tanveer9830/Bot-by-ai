@@ -65,14 +65,17 @@ export function renderTemplate(template: string, context: TemplateContext): Rend
     values[normalized] = sanitizeMentions(String(value));
   }
 
-  const output = template.replace(/\{\{?\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}?\}/g, (full, name: string) => {
-    const key = name.toLowerCase();
-    if (!ALLOWED_VARIABLES.has(key) && !(key in values)) {
-      unknown.push(name);
-      return full;
-    }
-    return values[key] ?? full;
-  });
+  const output = template.replace(
+    /\{\{?\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}?\}/g,
+    (full, name: string) => {
+      const key = name.toLowerCase();
+      if (!ALLOWED_VARIABLES.has(key) && !(key in values)) {
+        unknown.push(name);
+        return full;
+      }
+      return values[key] ?? full;
+    },
+  );
 
   return { output, unknownVariables: [...new Set(unknown)] };
 }
@@ -87,7 +90,10 @@ export function listTemplateVariables(template: string): string[] {
   return [...found];
 }
 
-export function validateTemplate(template: string, maxLength = 4000): { valid: boolean; error?: string; unknown: string[] } {
+export function validateTemplate(
+  template: string,
+  maxLength = 4000,
+): { valid: boolean; error?: string; unknown: string[] } {
   if (template.length > maxLength) {
     return { valid: false, error: `template exceeds ${maxLength} characters`, unknown: [] };
   }

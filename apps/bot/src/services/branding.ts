@@ -44,7 +44,9 @@ export class BrandingService {
    * Decides whether the bot should reply to an ordinary message.
    * Returns null when no response is warranted.
    */
-  async maybeRespond(message: Message<true>): Promise<{ content?: string; embed?: boolean } | null> {
+  async maybeRespond(
+    message: Message<true>,
+  ): Promise<{ content?: string; embed?: boolean } | null> {
     if (!message.guild || message.author.bot) return null;
     const settings = await this.getSettings(message.guild.id);
     if (!settings.enabled) return null;
@@ -52,7 +54,9 @@ export class BrandingService {
     if (settings.exemptChannelIds.includes(message.channelId)) return null;
     if (this.usageFor(message.channelId) >= settings.dailyCapPerChannel) return null;
 
-    const channelRule = settings.channelTemplates.find((rule) => rule.channelId === message.channelId);
+    const channelRule = settings.channelTemplates.find(
+      (rule) => rule.channelId === message.channelId,
+    );
     let templates: string[] = [];
     let cooldownSeconds = 60;
 
@@ -84,7 +88,10 @@ export class BrandingService {
         id: message.guild.id,
         memberCount: message.guild.memberCount,
       },
-      channel: { name: 'name' in message.channel ? String(message.channel.name) : 'channel', mention: `<#${message.channelId}>` },
+      channel: {
+        name: 'name' in message.channel ? String(message.channel.name) : 'channel',
+        mention: `<#${message.channelId}>`,
+      },
       command: { name: 'branding', args: message.content.slice(0, 200) },
     }).output;
 
@@ -103,9 +110,15 @@ export class BrandingService {
   }
 
   /** Renders a branded embed for announcements, if branding is configured. */
-  async announcementEmbed(guild: Guild, title: string, description: string): Promise<ReturnType<typeof baseEmbed>> {
+  async announcementEmbed(
+    guild: Guild,
+    title: string,
+    description: string,
+  ): Promise<ReturnType<typeof baseEmbed>> {
     const settings = await this.getSettings(guild.id);
-    const embed = baseEmbed(settings.embedColor || COLORS.primary).setTitle(title).setDescription(description);
+    const embed = baseEmbed(settings.embedColor || COLORS.primary)
+      .setTitle(title)
+      .setDescription(description);
     if (settings.footerText) embed.setFooter({ text: settings.footerText });
     return embed;
   }
@@ -120,13 +133,21 @@ export class BrandingService {
   }): Promise<boolean> {
     const channel = await input.guild.channels.fetch(input.channelId).catch(() => null);
     if (!channel?.isTextBased() || channel.type === ChannelType.GuildVoice) {
-      this.logger.warn('announcement channel unavailable', { guildId: input.guild.id, channelId: input.channelId });
+      this.logger.warn('announcement channel unavailable', {
+        guildId: input.guild.id,
+        channelId: input.channelId,
+      });
       return false;
     }
     const embed = await this.announcementEmbed(input.guild, input.title, input.description);
-    const content = input.ping === 'everyone' ? '@everyone' : input.ping === 'here' ? '@here' : undefined;
+    const content =
+      input.ping === 'everyone' ? '@everyone' : input.ping === 'here' ? '@here' : undefined;
     const sent = await channel
-      .send({ content, embeds: [embed], allowedMentions: { parse: input.ping === 'none' ? [] : (['everyone'] as const) } })
+      .send({
+        content,
+        embeds: [embed],
+        allowedMentions: { parse: input.ping === 'none' ? [] : (['everyone'] as const) },
+      })
       .then(() => true)
       .catch(() => false);
     return sent;

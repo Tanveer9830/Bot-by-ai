@@ -1,4 +1,10 @@
-import { type TextChannel, ChannelType, type Guild, type GuildBasedChannel, type TextBasedChannel } from 'discord.js';
+import {
+  type TextChannel,
+  ChannelType,
+  type Guild,
+  type GuildBasedChannel,
+  type TextBasedChannel,
+} from 'discord.js';
 import type { Logger } from '@bot-by-ai/shared';
 import type { Repositories } from '@bot-by-ai/database';
 import type { GuildSettingsService } from './settings.js';
@@ -40,15 +46,18 @@ export class LoggingService {
     return this.settings.get<LoggingSettings>(guildId, 'logging');
   }
 
-  private async resolveChannel(guild: Guild, channelId?: string | null): Promise<TextBasedChannel | null> {
+  private async resolveChannel(
+    guild: Guild,
+    channelId?: string | null,
+  ): Promise<TextBasedChannel | null> {
     if (!channelId) return null;
     const cached = guild.channels.cache.get(channelId);
     const channel: GuildBasedChannel | undefined | null =
-      cached ??
-      (await guild.channels.fetch(channelId).catch(() => null));
+      cached ?? (await guild.channels.fetch(channelId).catch(() => null));
     if (!channel) return null;
     if (!channel.isTextBased()) return null;
-    if (channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice) return null;
+    if (channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice)
+      return null;
     const me = guild.members.me;
     if (me && !channel.permissionsFor(me)?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])) {
       this.logger.warn('log channel is missing bot permissions', { guildId: guild.id, channelId });
@@ -86,11 +95,13 @@ export class LoggingService {
       .setTitle(payload.title.slice(0, 250))
       .setDescription(payload.description?.slice(0, 4000) ?? null);
     if (payload.fields && payload.fields.length > 0) {
-      embed.addFields(payload.fields.slice(0, 25).map((field) => ({
-        name: field.name.slice(0, 256),
-        value: field.value.slice(0, 1024) || '—',
-        inline: field.inline ?? true,
-      })));
+      embed.addFields(
+        payload.fields.slice(0, 25).map((field) => ({
+          name: field.name.slice(0, 256),
+          value: field.value.slice(0, 1024) || '—',
+          inline: field.inline ?? true,
+        })),
+      );
     }
     try {
       await (channel as TextChannel).send({ embeds: [embed] });
@@ -110,7 +121,10 @@ export class LoggingService {
     details: { command: string; message: string; userId?: string },
   ): Promise<void> {
     if (!guild) {
-      this.logger.error('command error outside a guild', { command: details.command, message: details.message });
+      this.logger.error('command error outside a guild', {
+        command: details.command,
+        message: details.message,
+      });
       return;
     }
     await this.log(guild, {
@@ -165,7 +179,12 @@ export class LoggingService {
       category: 'security',
       title: `🛡️ ${details.title}`,
       description: details.description,
-      color: details.severity === 3 ? COLORS.danger : details.severity === 2 ? COLORS.warning : COLORS.security,
+      color:
+        details.severity === 3
+          ? COLORS.danger
+          : details.severity === 2
+            ? COLORS.warning
+            : COLORS.security,
       actorId: details.actorId ?? null,
       targetId: details.targetId ?? null,
       auditAction: `security.${details.kind ?? 'event'}`,

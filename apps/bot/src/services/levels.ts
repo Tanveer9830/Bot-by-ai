@@ -63,12 +63,27 @@ export class LevelsService {
     recentMessages?: string[];
   }): Promise<XpOutcome> {
     const settings = await this.getSettings(input.guild.id);
-    if (!settings.enabled) return { granted: false, amount: 0, xp: 0, level: 0, leveledUp: false, reason: 'disabled' };
+    if (!settings.enabled)
+      return { granted: false, amount: 0, xp: 0, level: 0, leveledUp: false, reason: 'disabled' };
     if (settings.ignoredChannelIds.includes(input.channelId)) {
-      return { granted: false, amount: 0, xp: 0, level: 0, leveledUp: false, reason: 'ignored channel' };
+      return {
+        granted: false,
+        amount: 0,
+        xp: 0,
+        level: 0,
+        leveledUp: false,
+        reason: 'ignored channel',
+      };
     }
     if (settings.ignoredRoleIds.some((roleId) => input.member.roles.cache.has(roleId))) {
-      return { granted: false, amount: 0, xp: 0, level: 0, leveledUp: false, reason: 'ignored role' };
+      return {
+        granted: false,
+        amount: 0,
+        xp: 0,
+        level: 0,
+        leveledUp: false,
+        reason: 'ignored role',
+      };
     }
     if (settings.noXpRoleIds.some((roleId) => input.member.roles.cache.has(roleId))) {
       return { granted: false, amount: 0, xp: 0, level: 0, leveledUp: false, reason: 'no-xp role' };
@@ -84,7 +99,14 @@ export class LevelsService {
           countMessage: true,
         })
         .catch(() => {});
-      return { granted: false, amount: 0, xp: 0, level: 0, leveledUp: false, reason: 'low quality message' };
+      return {
+        granted: false,
+        amount: 0,
+        xp: 0,
+        level: 0,
+        leveledUp: false,
+        reason: 'low quality message',
+      };
     }
 
     const amount = computeMessageXp({
@@ -103,14 +125,18 @@ export class LevelsService {
     });
 
     if (result.leveledUp) {
-      await this.announceLevelUp(input.guild, input.member, result.level, settings).catch((error) => {
-        this.logger.warn('level-up announcement failed', {
-          guildId: input.guild.id,
-          userId: input.member.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-      await this.applyRoleRewards(input.guild, input.member, result.level, settings).catch(() => {});
+      await this.announceLevelUp(input.guild, input.member, result.level, settings).catch(
+        (error) => {
+          this.logger.warn('level-up announcement failed', {
+            guildId: input.guild.id,
+            userId: input.member.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        },
+      );
+      await this.applyRoleRewards(input.guild, input.member, result.level, settings).catch(
+        () => {},
+      );
     }
 
     return {
@@ -131,7 +157,9 @@ export class LevelsService {
   }): Promise<{ granted: boolean; amount: number }> {
     const settings = await this.getSettings(input.guild.id);
     if (!settings.enabled || settings.xpPerVoiceMinute <= 0) return { granted: false, amount: 0 };
-    const amount = Math.floor(settings.xpPerVoiceMinute * this.resolveMultiplier(settings, input.member));
+    const amount = Math.floor(
+      settings.xpPerVoiceMinute * this.resolveMultiplier(settings, input.member),
+    );
     const result = await this.repos.levels.addXp({
       guildId: input.guild.id,
       userId: input.member.id,
@@ -142,7 +170,9 @@ export class LevelsService {
     });
     if (result.leveledUp) {
       await this.announceLevelUp(input.guild, input.member, result.level, settings).catch(() => {});
-      await this.applyRoleRewards(input.guild, input.member, result.level, settings).catch(() => {});
+      await this.applyRoleRewards(input.guild, input.member, result.level, settings).catch(
+        () => {},
+      );
     }
     return { granted: true, amount };
   }
@@ -170,9 +200,7 @@ export class LevelsService {
       }
     }
     if (settings.announceDm) {
-      await member
-        .send(`You reached level **${level}** in **${guild.name}**!`)
-        .catch(() => {});
+      await member.send(`You reached level **${level}** in **${guild.name}**!`).catch(() => {});
     }
     await this.logging
       .log(guild, {
@@ -198,7 +226,9 @@ export class LevelsService {
     const { toAdd, toRemove } = computeLevelUpRoles(level, settings.roleRewards);
     const addRole = toAdd[0];
     if (addRole) {
-      const role = guild.roles.cache.get(addRole.roleId) ?? (await guild.roles.fetch(addRole.roleId).catch(() => null));
+      const role =
+        guild.roles.cache.get(addRole.roleId) ??
+        (await guild.roles.fetch(addRole.roleId).catch(() => null));
       if (role && role.position < me.roles.highest.position && !member.roles.cache.has(role.id)) {
         await member.roles.add(role, `Level reward (level ${addRole.level})`).catch(() => {});
       }
@@ -211,7 +241,10 @@ export class LevelsService {
     }
   }
 
-  async profile(guildId: string, userId: string): Promise<{
+  async profile(
+    guildId: string,
+    userId: string,
+  ): Promise<{
     xp: number;
     level: number;
     rank: number | null;

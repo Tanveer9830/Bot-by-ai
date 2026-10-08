@@ -27,7 +27,10 @@ const CONSTANTS: Record<string, number> = {
   tau: Math.PI * 2,
 };
 
-type Token = { type: 'number'; value: number } | { type: 'name'; value: string } | { type: 'op'; value: string };
+type Token =
+  | { type: 'number'; value: number }
+  | { type: 'name'; value: string }
+  | { type: 'op'; value: string };
 
 const MAX_INPUT_LENGTH = 200;
 const MAX_TOKENS = 200;
@@ -139,7 +142,8 @@ function toRpn(tokens: Token[]): Token[] {
   }
   while (operators.length > 0) {
     const token = operators.pop() as Token;
-    if (token.type === 'op' && (token.value === '(' || token.value === ')')) throw new Error('unbalanced parentheses');
+    if (token.type === 'op' && (token.value === '(' || token.value === ')'))
+      throw new Error('unbalanced parentheses');
     output.push(token);
   }
   return output;
@@ -171,9 +175,15 @@ function evaluateRpn(rpn: Token[]): number {
     const left = stack.pop();
     if (right === undefined || left === undefined) throw new Error('incomplete expression');
     switch (token.value) {
-      case '+': stack.push(left + right); break;
-      case '-': stack.push(left - right); break;
-      case '*': stack.push(left * right); break;
+      case '+':
+        stack.push(left + right);
+        break;
+      case '-':
+        stack.push(left - right);
+        break;
+      case '*':
+        stack.push(left * right);
+        break;
       case '/':
         if (right === 0) throw new Error('division by zero');
         stack.push(left / right);
@@ -182,8 +192,11 @@ function evaluateRpn(rpn: Token[]): number {
         if (right === 0) throw new Error('division by zero');
         stack.push(left % right);
         break;
-      case '^': stack.push(left ** right); break;
-      default: throw new Error(`unsupported operator "${token.value}"`);
+      case '^':
+        stack.push(left ** right);
+        break;
+      default:
+        throw new Error(`unsupported operator "${token.value}"`);
     }
   }
   if (stack.length !== 1) throw new Error('incomplete expression');

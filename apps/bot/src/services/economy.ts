@@ -39,9 +39,16 @@ export class EconomyService {
     return this.settings.get<EconomySettings>(guildId, 'economy');
   }
 
-  async account(guildId: string, userId: string): Promise<{ wallet: number; bank: number; total: number }> {
+  async account(
+    guildId: string,
+    userId: string,
+  ): Promise<{ wallet: number; bank: number; total: number }> {
     const settings = await this.getSettings(guildId);
-    const account = await this.repos.economy.ensureAccount(guildId, userId, settings.starterBalance);
+    const account = await this.repos.economy.ensureAccount(
+      guildId,
+      userId,
+      settings.starterBalance,
+    );
     return { wallet: account.wallet, bank: account.bank, total: account.wallet + account.bank };
   }
 
@@ -72,7 +79,13 @@ export class EconomyService {
       userId,
       amount,
       type: 'daily',
-      idempotencyKey: idempotencyKey(['daily', guildId, userId, claim.streak, settings.dailyCooldownMs]),
+      idempotencyKey: idempotencyKey([
+        'daily',
+        guildId,
+        userId,
+        claim.streak,
+        settings.dailyCooldownMs,
+      ]),
       starterBalance: settings.starterBalance,
       metadata: { streak: claim.streak, multiplier },
     });
@@ -114,7 +127,9 @@ export class EconomyService {
       cooldownMs: settings.workCooldownMs,
     });
     if (!claim.granted) {
-      throw new UserFacingError(`You are tired. Try working again in ${formatDuration(claim.retryAfterMs)}.`);
+      throw new UserFacingError(
+        `You are tired. Try working again in ${formatDuration(claim.retryAfterMs)}.`,
+      );
     }
     const amount = computeWorkReward({
       min: settings.workMin,
@@ -128,7 +143,13 @@ export class EconomyService {
       userId,
       amount,
       type: 'work',
-      idempotencyKey: idempotencyKey(['work', guildId, userId, claim.streak, Math.floor(Date.now() / 3_600_000)]),
+      idempotencyKey: idempotencyKey([
+        'work',
+        guildId,
+        userId,
+        claim.streak,
+        Math.floor(Date.now() / 3_600_000),
+      ]),
       starterBalance: settings.starterBalance,
     });
     return { amount, balance: result.balance, streak: claim.streak };
@@ -149,7 +170,10 @@ export class EconomyService {
     if (input.amount > settings.transferMax) {
       throw new UserFacingError(`The maximum transfer is ${settings.transferMax}.`);
     }
-    const { fee } = computeTransfer({ amount: input.amount, feePercent: settings.transferFeePercent });
+    const { fee } = computeTransfer({
+      amount: input.amount,
+      feePercent: settings.transferFeePercent,
+    });
     const account = await this.account(input.guildId, input.fromUserId);
     assertSufficientFunds(account.wallet, input.amount + fee, 'wallet');
     return this.repos.economy.transfer({
@@ -159,12 +183,18 @@ export class EconomyService {
       amount: input.amount,
       feePercent: settings.transferFeePercent,
       idempotencyKey:
-        input.idempotencyKey ?? idempotencyKey(['transfer', input.guildId, input.fromUserId, input.toUserId, Date.now()]),
+        input.idempotencyKey ??
+        idempotencyKey(['transfer', input.guildId, input.fromUserId, input.toUserId, Date.now()]),
       starterBalance: settings.starterBalance,
     });
   }
 
-  async buy(guildId: string, userId: string, itemName: string, quantity = 1): Promise<{
+  async buy(
+    guildId: string,
+    userId: string,
+    itemName: string,
+    quantity = 1,
+  ): Promise<{
     itemName: string;
     roleId: string | null;
     quantity: number;
@@ -233,7 +263,15 @@ export class EconomyService {
     guildId: string,
     userId: string,
   ): Promise<
-    { key: string; name: string; description: string | null; requirement: unknown; reward: number; progress: number; completed: boolean }[]
+    {
+      key: string;
+      name: string;
+      description: string | null;
+      requirement: unknown;
+      reward: number;
+      progress: number;
+      completed: boolean;
+    }[]
   > {
     const result = await this.db.query<{
       key: string;
@@ -252,22 +290,24 @@ export class EconomyService {
         ORDER BY a.reward ASC`,
       [guildId, userId],
     );
-    return result.rows.map((row: {
-      key: string;
-      name: string;
-      description: string | null;
-      requirement: { type?: string; value?: number } | null;
-      reward: number;
-      progress: number | null;
-      completed_at: Date | null;
-    }) => ({
-      key: row.key,
-      name: row.name,
-      description: row.description,
-      requirement: row.requirement,
-      reward: Number(row.reward),
-      progress: Number(row.progress ?? 0),
-      completed: row.completed_at !== null,
-    }));
+    return result.rows.map(
+      (row: {
+        key: string;
+        name: string;
+        description: string | null;
+        requirement: { type?: string; value?: number } | null;
+        reward: number;
+        progress: number | null;
+        completed_at: Date | null;
+      }) => ({
+        key: row.key,
+        name: row.name,
+        description: row.description,
+        requirement: row.requirement,
+        reward: Number(row.reward),
+        progress: Number(row.progress ?? 0),
+        completed: row.completed_at !== null,
+      }),
+    );
   }
 }

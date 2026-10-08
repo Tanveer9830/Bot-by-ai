@@ -124,7 +124,12 @@ export class ModerationRepository {
     return { rows, total: Number(rows[0]?.total ?? 0) };
   }
 
-  async revokeCase(guildId: string, caseNumber: number, revokedBy: string, reason?: string): Promise<boolean> {
+  async revokeCase(
+    guildId: string,
+    caseNumber: number,
+    revokedBy: string,
+    reason?: string,
+  ): Promise<boolean> {
     const { rowCount } = await this.db.query(
       `UPDATE moderation_cases
           SET status = 'revoked', revoked_at = now(), revoked_by = $3, updated_at = now(),
@@ -177,7 +182,11 @@ export class ModerationRepository {
     return rows[0] as { id: number; active: boolean; created_at: Date };
   }
 
-  async getActiveWarnings(guildId: string, userId: string, limit = 25): Promise<
+  async getActiveWarnings(
+    guildId: string,
+    userId: string,
+    limit = 25,
+  ): Promise<
     { id: number; reason: string; moderator_id: string; weight: number; created_at: Date }[]
   > {
     const { rows } = await this.db.query<{
@@ -225,17 +234,28 @@ export class ModerationRepository {
 
   // ----------------------------------------------------------------- appeals
 
-  async createAppeal(input: { guildId: string; caseId: number; userId: string; message: string }): Promise<number> {
+  async createAppeal(input: {
+    guildId: string;
+    caseId: number;
+    userId: string;
+    message: string;
+  }): Promise<number> {
     const { rows } = await this.db.query<{ id: number }>(
       `INSERT INTO moderation_appeals (guild_id, case_id, user_id, message)
        VALUES ($1,$2,$3,$4) RETURNING id`,
       [input.guildId, input.caseId, input.userId, input.message],
     );
-    await this.db.query(`UPDATE moderation_cases SET appeal_status = 'pending' WHERE id = $1`, [input.caseId]);
+    await this.db.query(`UPDATE moderation_cases SET appeal_status = 'pending' WHERE id = $1`, [
+      input.caseId,
+    ]);
     return Number(rows[0]?.id);
   }
 
-  async listAppeals(guildId: string, status = 'pending', limit = 25): Promise<
+  async listAppeals(
+    guildId: string,
+    status = 'pending',
+    limit = 25,
+  ): Promise<
     {
       id: number;
       case_id: number | null;
@@ -287,7 +307,12 @@ export class ModerationRepository {
       );
       const record = caseRows[0];
       if (!record) return null;
-      return { caseId: appeal.case_id, caseNumber: record.case_number, userId: appeal.user_id, action: record.action };
+      return {
+        caseId: appeal.case_id,
+        caseNumber: record.case_number,
+        userId: appeal.user_id,
+        action: record.action,
+      };
     });
   }
 }

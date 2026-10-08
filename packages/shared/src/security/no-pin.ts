@@ -91,7 +91,8 @@ export function evaluateNoPin(
   }
 
   const protectedTarget =
-    input.messageAuthorId !== undefined && settings.protectedUserIds.includes(input.messageAuthorId);
+    input.messageAuthorId !== undefined &&
+    settings.protectedUserIds.includes(input.messageAuthorId);
 
   if (!protectedTarget) {
     return { ...base, reason: 'message author is not protected' };
@@ -106,7 +107,8 @@ export function evaluateNoPin(
     return {
       ...base,
       violation: true,
-      reason: 'pin event on a protected message; the acting user could not be resolved from the audit log',
+      reason:
+        'pin event on a protected message; the acting user could not be resolved from the audit log',
       shouldAlert: true,
       severity: settings.action === 'log' ? 1 : 2,
     };

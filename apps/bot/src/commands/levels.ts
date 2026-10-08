@@ -21,7 +21,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function actor(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   return member;
 }
 
@@ -53,9 +54,17 @@ export const commands: BotCommand[] = defineCommands([
           { name: 'Rank', value: profile.rank ? `#${profile.rank}` : 'unranked', inline: true },
           { name: 'Messages', value: formatNumber(profile.messages), inline: true },
           { name: 'Voice minutes', value: formatNumber(profile.voiceMinutes), inline: true },
-          { name: 'Next role reward', value: nextReward ? `level ${nextReward.level} → <@&${nextReward.roleId}>` : 'none configured', inline: true },
+          {
+            name: 'Next role reward',
+            value: nextReward
+              ? `level ${nextReward.level} → <@&${nextReward.roleId}>`
+              : 'none configured',
+            inline: true,
+          },
         )
-        .setFooter({ text: `XP per message: ${settings.minXp}-${settings.maxXp} • cooldown ${formatDuration(settings.cooldownMs)}` });
+        .setFooter({
+          text: `XP per message: ${settings.minXp}-${settings.maxXp} • cooldown ${formatDuration(settings.cooldownMs)}`,
+        });
       if (member) embed.setColor(member.displayColor || COLORS.primary);
       await interaction.reply({ embeds: [embed] });
     },
@@ -66,34 +75,81 @@ export const commands: BotCommand[] = defineCommands([
       .setName('levelconfig')
       .setDescription('Configure leveling for this server')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the leveling configuration'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the leveling configuration'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('toggle')
           .setDescription('Enable or disable leveling')
-          .addBooleanOption((option) => option.setName('enabled').setDescription('Enabled?').setRequired(true)),
+          .addBooleanOption((option) =>
+            option.setName('enabled').setDescription('Enabled?').setRequired(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('xp')
           .setDescription('Configure XP gain')
-          .addIntegerOption((option) => option.setName('min').setDescription('Minimum XP per message').setMinValue(1).setMaxValue(1000))
-          .addIntegerOption((option) => option.setName('max').setDescription('Maximum XP per message').setMinValue(1).setMaxValue(1000))
-          .addIntegerOption((option) => option.setName('cooldown_seconds').setDescription('Per-user XP cooldown').setMinValue(1).setMaxValue(600))
-          .addNumberOption((option) => option.setName('multiplier').setDescription('Global XP multiplier').setMinValue(0.1).setMaxValue(10))
-          .addIntegerOption((option) => option.setName('voice_per_minute').setDescription('XP per voice minute').setMinValue(0).setMaxValue(500))
-          .addIntegerOption((option) => option.setName('max_level').setDescription('Level cap').setMinValue(1).setMaxValue(500))
-          .addBooleanOption((option) => option.setName('stack_cooldown').setDescription('Stack XP while on cooldown for the next message')),
+          .addIntegerOption((option) =>
+            option
+              .setName('min')
+              .setDescription('Minimum XP per message')
+              .setMinValue(1)
+              .setMaxValue(1000),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('max')
+              .setDescription('Maximum XP per message')
+              .setMinValue(1)
+              .setMaxValue(1000),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('cooldown_seconds')
+              .setDescription('Per-user XP cooldown')
+              .setMinValue(1)
+              .setMaxValue(600),
+          )
+          .addNumberOption((option) =>
+            option
+              .setName('multiplier')
+              .setDescription('Global XP multiplier')
+              .setMinValue(0.1)
+              .setMaxValue(10),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('voice_per_minute')
+              .setDescription('XP per voice minute')
+              .setMinValue(0)
+              .setMaxValue(500),
+          )
+          .addIntegerOption((option) =>
+            option.setName('max_level').setDescription('Level cap').setMinValue(1).setMaxValue(500),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName('stack_cooldown')
+              .setDescription('Stack XP while on cooldown for the next message'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('announce')
           .setDescription('Configure level-up announcements')
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Announcement channel').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Announcement channel')
+              .addChannelTypes(ChannelType.GuildText),
           )
-          .addStringOption((option) => option.setName('message').setDescription('Template, e.g. "GG {user}, level {level}!"'))
-          .addBooleanOption((option) => option.setName('dm').setDescription('Also DM the member on level up')),
+          .addStringOption((option) =>
+            option.setName('message').setDescription('Template, e.g. "GG {user}, level {level}!"'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('dm').setDescription('Also DM the member on level up'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -106,31 +162,60 @@ export const commands: BotCommand[] = defineCommands([
               .setRequired(true)
               .addChoices({ name: 'channel', value: 'channel' }, { name: 'role', value: 'role' }),
           )
-          .addChannelOption((option) => option.setName('channel').setDescription('Channel to ignore'))
+          .addChannelOption((option) =>
+            option.setName('channel').setDescription('Channel to ignore'),
+          )
           .addRoleOption((option) => option.setName('role').setDescription('Role to ignore')),
       )
       .addSubcommand((sub) =>
         sub
           .setName('reward')
           .setDescription('Configure a role reward for reaching a level')
-          .addIntegerOption((option) => option.setName('level').setDescription('Level required').setRequired(true).setMinValue(1).setMaxValue(500))
-          .addRoleOption((option) => option.setName('role').setDescription('Role to grant').setRequired(true))
-          .addBooleanOption((option) => option.setName('remove').setDescription('Remove this reward instead')),
+          .addIntegerOption((option) =>
+            option
+              .setName('level')
+              .setDescription('Level required')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(500),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role to grant').setRequired(true),
+          )
+          .addBooleanOption((option) =>
+            option.setName('remove').setDescription('Remove this reward instead'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('roleboost')
           .setDescription('Give members with a role a XP multiplier')
-          .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true))
-          .addNumberOption((option) => option.setName('multiplier').setDescription('Multiplier (1-5)').setRequired(true).setMinValue(1).setMaxValue(5)),
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role').setRequired(true),
+          )
+          .addNumberOption((option) =>
+            option
+              .setName('multiplier')
+              .setDescription('Multiplier (1-5)')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(5),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
-      requireUserPermissions(actor(interaction), [PermissionFlagsBits.ManageGuild], 'level configuration');
+      requireUserPermissions(
+        actor(interaction),
+        [PermissionFlagsBits.ManageGuild],
+        'level configuration',
+      );
       const sub = interaction.options.getSubcommand(true);
       const settings = await services.levels.getSettings(guild.id);
       const update = async (patch: Record<string, unknown>): Promise<LevelSettings> =>
-        services.settings.update<LevelSettings>(guild.id, 'levels', patch, { actorId: interaction.user.id, source: 'command' });
+        services.settings.update<LevelSettings>(guild.id, 'levels', patch, {
+          actorId: interaction.user.id,
+          source: 'command',
+        });
 
       if (sub === 'status') {
         await interaction.reply({
@@ -139,16 +224,32 @@ export const commands: BotCommand[] = defineCommands([
               .setTitle('📈 Leveling configuration')
               .addFields(
                 { name: 'Enabled', value: settings.enabled ? 'yes' : 'no', inline: true },
-                { name: 'XP per message', value: `${settings.minXp}-${settings.maxXp}`, inline: true },
+                {
+                  name: 'XP per message',
+                  value: `${settings.minXp}-${settings.maxXp}`,
+                  inline: true,
+                },
                 { name: 'Cooldown', value: formatDuration(settings.cooldownMs), inline: true },
                 { name: 'Multiplier', value: `×${settings.multiplier}`, inline: true },
                 { name: 'Voice XP/min', value: String(settings.xpPerVoiceMinute), inline: true },
                 { name: 'Level cap', value: String(settings.maxLevel), inline: true },
-                { name: 'Announce channel', value: settings.announceChannelId ? `<#${settings.announceChannelId}>` : 'not set', inline: true },
+                {
+                  name: 'Announce channel',
+                  value: settings.announceChannelId
+                    ? `<#${settings.announceChannelId}>`
+                    : 'not set',
+                  inline: true,
+                },
                 { name: 'DM on level up', value: settings.announceDm ? 'yes' : 'no', inline: true },
                 { name: 'Template', value: settings.message.slice(0, 200) },
-                { name: 'Ignored channels', value: settings.ignoredChannelIds.map((id) => `<#${id}>`).join(' ') || 'none' },
-                { name: 'Ignored roles', value: settings.ignoredRoleIds.map((id) => `<@&${id}>`).join(' ') || 'none' },
+                {
+                  name: 'Ignored channels',
+                  value: settings.ignoredChannelIds.map((id) => `<#${id}>`).join(' ') || 'none',
+                },
+                {
+                  name: 'Ignored roles',
+                  value: settings.ignoredRoleIds.map((id) => `<@&${id}>`).join(' ') || 'none',
+                },
                 {
                   name: `Role rewards (${settings.roleRewards.length})`,
                   value:
@@ -160,7 +261,9 @@ export const commands: BotCommand[] = defineCommands([
                 {
                   name: `Role boosts (${settings.levelMultiplierRoleIds.length})`,
                   value:
-                    settings.levelMultiplierRoleIds.map((boost) => `<@&${boost.roleId}> ×${boost.multiplier}`).join('\n') || 'none',
+                    settings.levelMultiplierRoleIds
+                      .map((boost) => `<@&${boost.roleId}> ×${boost.multiplier}`)
+                      .join('\n') || 'none',
                 },
               ),
           ],
@@ -170,7 +273,11 @@ export const commands: BotCommand[] = defineCommands([
       if (sub === 'toggle') {
         const enabled = interaction.options.getBoolean('enabled', true);
         await update({ enabled });
-        await interaction.reply({ embeds: [enabled ? successEmbed('Leveling enabled.') : warningEmbed('Leveling disabled.')] });
+        await interaction.reply({
+          embeds: [
+            enabled ? successEmbed('Leveling enabled.') : warningEmbed('Leveling disabled.'),
+          ],
+        });
         return;
       }
       if (sub === 'xp') {
@@ -190,7 +297,8 @@ export const commands: BotCommand[] = defineCommands([
         if (maxLevel !== null) patch.maxLevel = maxLevel;
         if (stack !== null) patch.stackCooldown = stack;
         const updated = await update(patch);
-        if (updated.maxXp < updated.minXp) throw new UserFacingError('`max` must be greater than or equal to `min`.');
+        if (updated.maxXp < updated.minXp)
+          throw new UserFacingError('`max` must be greater than or equal to `min`.');
         await interaction.reply({
           embeds: [
             successEmbed(
@@ -209,7 +317,9 @@ export const commands: BotCommand[] = defineCommands([
         if (message) patch.message = message;
         if (dm !== null) patch.announceDm = dm;
         await update(patch);
-        await interaction.reply({ embeds: [successEmbed('Level-up announcement settings updated.')] });
+        await interaction.reply({
+          embeds: [successEmbed('Level-up announcement settings updated.')],
+        });
         return;
       }
       if (sub === 'ignored') {
@@ -222,7 +332,11 @@ export const commands: BotCommand[] = defineCommands([
           else list.add(channel.id);
           const updated = await update({ ignoredChannelIds: [...list] });
           await interaction.reply({
-            embeds: [successEmbed(`Ignored channels: ${updated.ignoredChannelIds.map((id) => `<#${id}>`).join(' ') || 'none'}`)],
+            embeds: [
+              successEmbed(
+                `Ignored channels: ${updated.ignoredChannelIds.map((id) => `<#${id}>`).join(' ') || 'none'}`,
+              ),
+            ],
           });
         } else {
           const role = interaction.options.getRole('role');
@@ -232,7 +346,11 @@ export const commands: BotCommand[] = defineCommands([
           else list.add(role.id);
           const updated = await update({ ignoredRoleIds: [...list] });
           await interaction.reply({
-            embeds: [successEmbed(`Ignored roles: ${updated.ignoredRoleIds.map((id) => `<@&${id}>`).join(' ') || 'none'}`)],
+            embeds: [
+              successEmbed(
+                `Ignored roles: ${updated.ignoredRoleIds.map((id) => `<@&${id}>`).join(' ') || 'none'}`,
+              ),
+            ],
           });
         }
         return;
@@ -242,8 +360,13 @@ export const commands: BotCommand[] = defineCommands([
         const role = interaction.options.getRole('role', true);
         const remove = interaction.options.getBoolean('remove') ?? false;
         const rewards = remove
-          ? settings.roleRewards.filter((reward) => !(reward.level === level && reward.roleId === role.id))
-          : [...settings.roleRewards.filter((reward) => reward.level !== level), { level, roleId: role.id }];
+          ? settings.roleRewards.filter(
+              (reward) => !(reward.level === level && reward.roleId === role.id),
+            )
+          : [
+              ...settings.roleRewards.filter((reward) => reward.level !== level),
+              { level, roleId: role.id },
+            ];
         const updated = await update({ roleRewards: rewards });
         await interaction.reply({
           embeds: [
@@ -263,7 +386,9 @@ export const commands: BotCommand[] = defineCommands([
         { roleId: role.id, multiplier },
       ];
       await update({ levelMultiplierRoleIds: boosts });
-      await interaction.reply({ embeds: [successEmbed(`<@&${role.id}> now earns ×${multiplier} XP.`)] });
+      await interaction.reply({
+        embeds: [successEmbed(`<@&${role.id}> now earns ×${multiplier} XP.`)],
+      });
     },
   },
   {
@@ -276,40 +401,78 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('add')
           .setDescription('Add XP to a member')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addIntegerOption((option) => option.setName('amount').setDescription('XP to add').setRequired(true).setMinValue(1)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option.setName('amount').setDescription('XP to add').setRequired(true).setMinValue(1),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('remove')
           .setDescription('Remove XP from a member')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addIntegerOption((option) => option.setName('amount').setDescription('XP to remove').setRequired(true).setMinValue(1)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('amount')
+              .setDescription('XP to remove')
+              .setRequired(true)
+              .setMinValue(1),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('set')
           .setDescription('Set a member’s XP to an exact value')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addIntegerOption((option) => option.setName('amount').setDescription('Total XP').setRequired(true).setMinValue(0)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option.setName('amount').setDescription('Total XP').setRequired(true).setMinValue(0),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('reset')
           .setDescription('Reset a member’s XP and level')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
-      requireUserPermissions(actor(interaction), [PermissionFlagsBits.ManageGuild], 'XP administration');
+      requireUserPermissions(
+        actor(interaction),
+        [PermissionFlagsBits.ManageGuild],
+        'XP administration',
+      );
       const sub = interaction.options.getSubcommand(true);
       const user = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount') ?? 0;
       const settings = await services.levels.getSettings(guild.id);
       let profile;
-      if (sub === 'add') profile = await services.repos.levels.addXpAdmin({ guildId: guild.id, userId: user.id, delta: amount });
-      else if (sub === 'remove') profile = await services.repos.levels.addXpAdmin({ guildId: guild.id, userId: user.id, delta: -amount });
-      else profile = await services.repos.levels.setXp({ guildId: guild.id, userId: user.id, xp: sub === 'reset' ? 0 : amount, maxLevel: settings.maxLevel });
+      if (sub === 'add')
+        profile = await services.repos.levels.addXpAdmin({
+          guildId: guild.id,
+          userId: user.id,
+          delta: amount,
+        });
+      else if (sub === 'remove')
+        profile = await services.repos.levels.addXpAdmin({
+          guildId: guild.id,
+          userId: user.id,
+          delta: -amount,
+        });
+      else
+        profile = await services.repos.levels.setXp({
+          guildId: guild.id,
+          userId: user.id,
+          xp: sub === 'reset' ? 0 : amount,
+          maxLevel: settings.maxLevel,
+        });
       await services.repos.audit.log({
         guildId: guild.id,
         actorId: interaction.user.id,

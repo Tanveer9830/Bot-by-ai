@@ -6,7 +6,14 @@ import {
   type ChatInputCommandInteraction,
   type Guild,
 } from 'discord.js';
-import { formatDuration, formatNumber, progressBar, truncate, UserFacingError, MAX_CURRENCY_AMOUNT } from '@bot-by-ai/shared';
+import {
+  formatDuration,
+  formatNumber,
+  progressBar,
+  truncate,
+  UserFacingError,
+  MAX_CURRENCY_AMOUNT,
+} from '@bot-by-ai/shared';
 import { COLORS } from '../core/constants.js';
 import { defineCommands, type BotCommand, type CommandContext } from '../core/command.js';
 import { baseEmbed, errorEmbed, successEmbed, warningEmbed } from '../core/embeds.js';
@@ -20,7 +27,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function actor(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   return member;
 }
 
@@ -50,8 +58,16 @@ async function balanceEmbed(input: {
       { name: 'Wallet', value: formatNumber(account.wallet), inline: true },
       { name: 'Bank', value: formatNumber(account.bank), inline: true },
       { name: 'Rank', value: rank ? `#${rank.rank}` : 'unranked', inline: true },
-      { name: 'Daily', value: ready(daily?.lastUsedAt, input.settings.dailyCooldownMs), inline: true },
-      { name: 'Weekly', value: ready(weekly?.lastUsedAt, input.settings.weeklyCooldownMs), inline: true },
+      {
+        name: 'Daily',
+        value: ready(daily?.lastUsedAt, input.settings.dailyCooldownMs),
+        inline: true,
+      },
+      {
+        name: 'Weekly',
+        value: ready(weekly?.lastUsedAt, input.settings.weeklyCooldownMs),
+        inline: true,
+      },
       { name: 'Work', value: ready(work?.lastUsedAt, input.settings.workCooldownMs), inline: true },
       {
         name: 'Streaks',
@@ -74,12 +90,16 @@ export const commands: BotCommand[] = defineCommands([
       const user = interaction.options.getUser('user') ?? interaction.user;
       const settings = await services.economy.getSettings(guild.id);
       if (!settings.enabled) throw new UserFacingError('The economy is disabled in this server.');
-      await interaction.reply({ embeds: [await balanceEmbed({ guildId: guild.id, userId: user.id, settings, services })] });
+      await interaction.reply({
+        embeds: [await balanceEmbed({ guildId: guild.id, userId: user.id, settings, services })],
+      });
     },
   },
   {
     category: 'economy',
-    data: new SlashCommandBuilder().setName('daily').setDescription('Claim your daily reward (streak bonus applies)'),
+    data: new SlashCommandBuilder()
+      .setName('daily')
+      .setDescription('Claim your daily reward (streak bonus applies)'),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const settings = await services.economy.getSettings(guild.id);
@@ -115,14 +135,26 @@ export const commands: BotCommand[] = defineCommands([
   },
   {
     category: 'economy',
-    data: new SlashCommandBuilder().setName('work').setDescription('Work for some currency (cooldown applies)'),
+    data: new SlashCommandBuilder()
+      .setName('work')
+      .setDescription('Work for some currency (cooldown applies)'),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const settings = await services.economy.getSettings(guild.id);
       const profile = await services.repos.levels.getProfile(guild.id, interaction.user.id);
       await interaction.deferReply();
-      const result = await services.economy.work(guild.id, interaction.user.id, profile?.level ?? 0);
-      const jobs = ['cleaned the counters', 'delivered a package', 'fixed a bug', 'streamed for 3 viewers', 'walked the bot’s dog'];
+      const result = await services.economy.work(
+        guild.id,
+        interaction.user.id,
+        profile?.level ?? 0,
+      );
+      const jobs = [
+        'cleaned the counters',
+        'delivered a package',
+        'fixed a bug',
+        'streamed for 3 viewers',
+        'walked the bot’s dog',
+      ];
       const job = jobs[(Date.now() / 1_000_000) % jobs.length];
       await interaction.editReply({
         embeds: [
@@ -139,13 +171,23 @@ export const commands: BotCommand[] = defineCommands([
     data: new SlashCommandBuilder()
       .setName('transfer')
       .setDescription('Send currency to another member')
-      .addUserOption((option) => option.setName('user').setDescription('Recipient').setRequired(true))
-      .addIntegerOption((option) => option.setName('amount').setDescription('Amount to send').setRequired(true).setMinValue(1).setMaxValue(MAX_CURRENCY_AMOUNT)),
+      .addUserOption((option) =>
+        option.setName('user').setDescription('Recipient').setRequired(true),
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName('amount')
+          .setDescription('Amount to send')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(MAX_CURRENCY_AMOUNT),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const recipient = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
-      if (recipient.id === interaction.user.id) throw new UserFacingError('You cannot transfer to yourself.');
+      if (recipient.id === interaction.user.id)
+        throw new UserFacingError('You cannot transfer to yourself.');
       if (recipient.bot) throw new UserFacingError('You cannot transfer to a bot.');
       const settings = await services.economy.getSettings(guild.id);
       await interaction.deferReply();
@@ -174,23 +216,41 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('deposit')
           .setDescription('Deposit into your bank')
-          .addIntegerOption((option) => option.setName('amount').setDescription('Amount (or all)').setRequired(true).setMinValue(1)),
+          .addIntegerOption((option) =>
+            option
+              .setName('amount')
+              .setDescription('Amount (or all)')
+              .setRequired(true)
+              .setMinValue(1),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('withdraw')
           .setDescription('Withdraw from your bank')
-          .addIntegerOption((option) => option.setName('amount').setDescription('Amount (or all)').setRequired(true).setMinValue(1)),
+          .addIntegerOption((option) =>
+            option
+              .setName('amount')
+              .setDescription('Amount (or all)')
+              .setRequired(true)
+              .setMinValue(1),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const sub = interaction.options.getSubcommand(true);
       const amount = interaction.options.getInteger('amount', true);
       const settings = await services.economy.getSettings(guild.id);
-      const account = await services.repos.economy.ensureAccount(guild.id, interaction.user.id, settings.starterBalance);
+      const account = await services.repos.economy.ensureAccount(
+        guild.id,
+        interaction.user.id,
+        settings.starterBalance,
+      );
       const deposit = sub === 'deposit';
-      if (deposit && account.wallet < amount) throw new UserFacingError(`You only have ${account.wallet} in your wallet.`);
-      if (!deposit && account.bank < amount) throw new UserFacingError(`You only have ${account.bank} in your bank.`);
+      if (deposit && account.wallet < amount)
+        throw new UserFacingError(`You only have ${account.wallet} in your wallet.`);
+      if (!deposit && account.bank < amount)
+        throw new UserFacingError(`You only have ${account.bank} in your bank.`);
 
       await services.db.transaction(async (client) => {
         await client.query(
@@ -255,8 +315,12 @@ export const commands: BotCommand[] = defineCommands([
     data: new SlashCommandBuilder()
       .setName('buy')
       .setDescription('Buy an item from the shop')
-      .addStringOption((option) => option.setName('item').setDescription('Item name').setRequired(true).setAutocomplete(true))
-      .addIntegerOption((option) => option.setName('quantity').setDescription('How many').setMinValue(1).setMaxValue(100)),
+      .addStringOption((option) =>
+        option.setName('item').setDescription('Item name').setRequired(true).setAutocomplete(true),
+      )
+      .addIntegerOption((option) =>
+        option.setName('quantity').setDescription('How many').setMinValue(1).setMaxValue(100),
+      ),
     autocomplete: async ({ interaction, services }) => {
       const guildId = interaction.guildId;
       if (!guildId) {
@@ -311,7 +375,9 @@ export const commands: BotCommand[] = defineCommands([
   },
   {
     category: 'economy',
-    data: new SlashCommandBuilder().setName('inventory').setDescription('Show your purchased items'),
+    data: new SlashCommandBuilder()
+      .setName('inventory')
+      .setDescription('Show your purchased items'),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const items = await services.repos.economy.getInventory(guild.id, interaction.user.id);
@@ -323,7 +389,10 @@ export const commands: BotCommand[] = defineCommands([
               items.length === 0
                 ? 'You have not purchased anything yet.'
                 : items
-                    .map((item) => `**${item.name}** ×${item.quantity} — acquired <t:${Math.floor(item.acquired_at.getTime() / 1000)}:R>`)
+                    .map(
+                      (item) =>
+                        `**${item.name}** ×${item.quantity} — acquired <t:${Math.floor(item.acquired_at.getTime() / 1000)}:R>`,
+                    )
                     .join('\n'),
             ),
         ],
@@ -340,15 +409,21 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('currency')
           .setDescription('Richest members')
-          .addIntegerOption((option) => option.setName('page').setDescription('Page').setMinValue(1).setMaxValue(50)),
+          .addIntegerOption((option) =>
+            option.setName('page').setDescription('Page').setMinValue(1).setMaxValue(50),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('levels')
           .setDescription('Highest XP members')
-          .addIntegerOption((option) => option.setName('page').setDescription('Page').setMinValue(1).setMaxValue(50)),
+          .addIntegerOption((option) =>
+            option.setName('page').setDescription('Page').setMinValue(1).setMaxValue(50),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('messages').setDescription('Most messages sent (tracked)'))
+      .addSubcommand((sub) =>
+        sub.setName('messages').setDescription('Most messages sent (tracked)'),
+      )
       .addSubcommand((sub) => sub.setName('voice').setDescription('Most voice minutes (tracked)')),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -364,7 +439,12 @@ export const commands: BotCommand[] = defineCommands([
           rows,
           (row, index) =>
             `**${index + 1}.** <@${row.user_id}> — ${formatNumber(row.total)} ${settings.currencySymbol} (wallet ${formatNumber(row.wallet)})`,
-          { title: `💰 Richest members`, pageSize: 15, emptyMessage: 'No economy accounts yet.', timeoutMs: 180_000 },
+          {
+            title: `💰 Richest members`,
+            pageSize: 15,
+            emptyMessage: 'No economy accounts yet.',
+            timeoutMs: 180_000,
+          },
         );
         void page;
         return;
@@ -374,39 +454,56 @@ export const commands: BotCommand[] = defineCommands([
         await sendPaginated(
           interaction,
           rows,
-          (row, index) => `**${index + 1}.** <@${row.user_id}> — level **${row.level}** (${formatNumber(row.xp)} XP)`,
-          { title: '📈 Level leaderboard', pageSize: 15, emptyMessage: 'Nobody has earned XP yet.' },
+          (row, index) =>
+            `**${index + 1}.** <@${row.user_id}> — level **${row.level}** (${formatNumber(row.xp)} XP)`,
+          {
+            title: '📈 Level leaderboard',
+            pageSize: 15,
+            emptyMessage: 'Nobody has earned XP yet.',
+          },
         );
         return;
       }
       if (sub === 'messages') {
-        const rows = await services.db.query<{ user_id: string; messages: number }>(
-          `SELECT user_id, messages FROM member_levels WHERE guild_id = $1 ORDER BY messages DESC LIMIT 100`,
-          [guild.id],
-        ).then((result) => result.rows);
+        const rows = await services.db
+          .query<{ user_id: string; messages: number }>(
+            `SELECT user_id, messages FROM member_levels WHERE guild_id = $1 ORDER BY messages DESC LIMIT 100`,
+            [guild.id],
+          )
+          .then((result) => result.rows);
         await sendPaginated(
           interaction,
           rows,
-          (row, index) => `**${index + 1}.** <@${row.user_id}> — ${formatNumber(Number(row.messages))} messages`,
-          { title: '💬 Most active members', pageSize: 15, emptyMessage: 'No message statistics yet.' },
+          (row, index) =>
+            `**${index + 1}.** <@${row.user_id}> — ${formatNumber(Number(row.messages))} messages`,
+          {
+            title: '💬 Most active members',
+            pageSize: 15,
+            emptyMessage: 'No message statistics yet.',
+          },
         );
         return;
       }
-      const rows = await services.db.query<{ user_id: string; voice_minutes: number }>(
-        `SELECT user_id, voice_minutes FROM member_levels WHERE guild_id = $1 ORDER BY voice_minutes DESC LIMIT 100`,
-        [guild.id],
-      ).then((result) => result.rows);
+      const rows = await services.db
+        .query<{ user_id: string; voice_minutes: number }>(
+          `SELECT user_id, voice_minutes FROM member_levels WHERE guild_id = $1 ORDER BY voice_minutes DESC LIMIT 100`,
+          [guild.id],
+        )
+        .then((result) => result.rows);
       await sendPaginated(
         interaction,
         rows,
-        (row, index) => `**${index + 1}.** <@${row.user_id}> — ${formatNumber(Number(row.voice_minutes))} voice minutes`,
+        (row, index) =>
+          `**${index + 1}.** <@${row.user_id}> — ${formatNumber(Number(row.voice_minutes))} voice minutes`,
         { title: '🎙️ Voice activity', pageSize: 15, emptyMessage: 'No voice statistics yet.' },
       );
     },
   },
   {
     category: 'economy',
-    data: new SlashCommandBuilder().setName('achievements').setDescription('Show your achievement progress'),
+    data: new SlashCommandBuilder()
+      .setName('achievements')
+      .setDescription('Show your achievement progress'),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const achievements = await services.economy.achievements(guild.id, interaction.user.id);
@@ -421,7 +518,6 @@ export const commands: BotCommand[] = defineCommands([
                     .map((achievement) => {
                       const requirement = achievement.requirement as { value?: number } | null;
                       const target = requirement?.value ?? 1;
-                      const ratio = Math.min(1, achievement.progress / target);
                       return `${achievement.completed ? '✅' : '⬜'} **${achievement.name}** — ${achievement.description ?? ''}\n${progressBar(achievement.progress, target, 10)} ${achievement.progress}/${target} • reward ${achievement.reward}`;
                     })
                     .join('\n\n'),
@@ -440,31 +536,59 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('add')
           .setDescription('Add currency to a member')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addIntegerOption((option) => option.setName('amount').setDescription('Amount').setRequired(true).setMinValue(1))
-          .addStringOption((option) => option.setName('reason').setDescription('Reason (recorded in the audit log)')),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option.setName('amount').setDescription('Amount').setRequired(true).setMinValue(1),
+          )
+          .addStringOption((option) =>
+            option.setName('reason').setDescription('Reason (recorded in the audit log)'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('remove')
           .setDescription('Remove currency from a member')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addIntegerOption((option) => option.setName('amount').setDescription('Amount').setRequired(true).setMinValue(1))
-          .addStringOption((option) => option.setName('reason').setDescription('Reason (recorded in the audit log)')),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option.setName('amount').setDescription('Amount').setRequired(true).setMinValue(1),
+          )
+          .addStringOption((option) =>
+            option.setName('reason').setDescription('Reason (recorded in the audit log)'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('set')
           .setDescription('Set a member’s wallet to an exact value')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addIntegerOption((option) => option.setName('amount').setDescription('New wallet balance').setRequired(true).setMinValue(0))
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('amount')
+              .setDescription('New wallet balance')
+              .setRequired(true)
+              .setMinValue(0),
+          )
           .addStringOption((option) => option.setName('reason').setDescription('Reason')),
       )
       .addSubcommand((sub) => sub.setName('stats').setDescription('Show economy supply statistics'))
-      .addSubcommand((sub) => sub.setName('reset').setDescription('Reset every economy account in this server (dangerous)')),
+      .addSubcommand((sub) =>
+        sub
+          .setName('reset')
+          .setDescription('Reset every economy account in this server (dangerous)'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
-      requireUserPermissions(actor(interaction), [PermissionFlagsBits.ManageGuild], 'economy administration');
+      requireUserPermissions(
+        actor(interaction),
+        [PermissionFlagsBits.ManageGuild],
+        'economy administration',
+      );
       const sub = interaction.options.getSubcommand(true);
       const settings = await services.economy.getSettings(guild.id);
 
@@ -479,8 +603,18 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'Total supply', value: formatNumber(stats.totalSupply), inline: true },
                 { name: 'Total earned', value: formatNumber(stats.totalEarned), inline: true },
                 { name: 'Total spent', value: formatNumber(stats.totalSpent), inline: true },
-                { name: 'Currency', value: `${settings.currencySymbol} ${settings.currencyName}`, inline: true },
-                { name: 'Shop items', value: String((await services.repos.economy.listShopItems(guild.id, true)).length), inline: true },
+                {
+                  name: 'Currency',
+                  value: `${settings.currencySymbol} ${settings.currencyName}`,
+                  inline: true,
+                },
+                {
+                  name: 'Shop items',
+                  value: String(
+                    (await services.repos.economy.listShopItems(guild.id, true)).length,
+                  ),
+                  inline: true,
+                },
               ),
           ],
         });
@@ -497,7 +631,10 @@ export const commands: BotCommand[] = defineCommands([
           confirmLabel: 'Delete all economy data',
         });
         if (!confirmed) {
-          await interaction.editReply({ embeds: [warningEmbed('Reset cancelled.')], components: [] });
+          await interaction.editReply({
+            embeds: [warningEmbed('Reset cancelled.')],
+            components: [],
+          });
           return;
         }
         const deleted = await services.db.transaction(async (client) => {
@@ -519,7 +656,10 @@ export const commands: BotCommand[] = defineCommands([
           action: 'economy.reset',
           metadata: { accounts: deleted },
         });
-        await interaction.editReply({ embeds: [successEmbed(`Economy reset — ${deleted} account(s) deleted.`)], components: [] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Economy reset — ${deleted} account(s) deleted.`)],
+          components: [],
+        });
         return;
       }
 
@@ -527,14 +667,28 @@ export const commands: BotCommand[] = defineCommands([
       const amount = interaction.options.getInteger('amount', true);
       const reason = interaction.options.getString('reason') ?? null;
       if (sub === 'set') {
-        const account = await services.repos.economy.ensureAccount(guild.id, user.id, settings.starterBalance);
+        const account = await services.repos.economy.ensureAccount(
+          guild.id,
+          user.id,
+          settings.starterBalance,
+        );
         const delta = amount - account.wallet;
         if (delta !== 0) {
-          await services.economy.adminAdjust({ guildId: guild.id, userId: user.id, amount: delta, actorId: interaction.user.id, reason });
+          await services.economy.adminAdjust({
+            guildId: guild.id,
+            userId: user.id,
+            amount: delta,
+            actorId: interaction.user.id,
+            reason,
+          });
         }
         const updated = await services.repos.economy.getAccount(guild.id, user.id);
         await interaction.reply({
-          embeds: [successEmbed(`Wallet of <@${user.id}> set to **${formatNumber(updated?.wallet ?? 0)}** ${settings.currencySymbol}.`)],
+          embeds: [
+            successEmbed(
+              `Wallet of <@${user.id}> set to **${formatNumber(updated?.wallet ?? 0)}** ${settings.currencySymbol}.`,
+            ),
+          ],
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -567,22 +721,45 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('add')
           .setDescription('Create or update a shop item')
-          .addStringOption((option) => option.setName('name').setDescription('Item name').setRequired(true))
-          .addIntegerOption((option) => option.setName('price').setDescription('Price').setRequired(true).setMinValue(0))
+          .addStringOption((option) =>
+            option.setName('name').setDescription('Item name').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option.setName('price').setDescription('Price').setRequired(true).setMinValue(0),
+          )
           .addStringOption((option) => option.setName('description').setDescription('Description'))
-          .addRoleOption((option) => option.setName('role').setDescription('Role granted on purchase'))
-          .addIntegerOption((option) => option.setName('stock').setDescription('Limited stock (omit for unlimited)').setMinValue(0)),
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role granted on purchase'),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('stock')
+              .setDescription('Limited stock (omit for unlimited)')
+              .setMinValue(0),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('remove')
           .setDescription('Delete a shop item')
-          .addStringOption((option) => option.setName('name').setDescription('Item name').setRequired(true).setAutocomplete(true)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Item name')
+              .setRequired(true)
+              .setAutocomplete(true),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('list').setDescription('List every item including disabled ones')),
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('List every item including disabled ones'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
-      requireUserPermissions(actor(interaction), [PermissionFlagsBits.ManageGuild], 'shop management');
+      requireUserPermissions(
+        actor(interaction),
+        [PermissionFlagsBits.ManageGuild],
+        'shop management',
+      );
       const sub = interaction.options.getSubcommand(true);
       const settings = await services.economy.getSettings(guild.id);
       if (sub === 'add') {
@@ -602,7 +779,10 @@ export const commands: BotCommand[] = defineCommands([
         return;
       }
       if (sub === 'remove') {
-        const removed = await services.repos.economy.deleteShopItem(guild.id, interaction.options.getString('name', true));
+        const removed = await services.repos.economy.deleteShopItem(
+          guild.id,
+          interaction.options.getString('name', true),
+        );
         await interaction.reply({
           embeds: [removed ? successEmbed('Item deleted.') : warningEmbed('No such item.')],
           flags: MessageFlags.Ephemeral,
@@ -635,16 +815,30 @@ export const commands: BotCommand[] = defineCommands([
       .setName('econfiscate')
       .setDescription('Confiscate currency from a member (moderator action, logged as a case)')
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-      .addUserOption((option) => option.setName('target').setDescription('Member').setRequired(true))
-      .addIntegerOption((option) => option.setName('amount').setDescription('Amount to confiscate').setRequired(true).setMinValue(1))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason').setRequired(true)),
+      .addUserOption((option) =>
+        option.setName('target').setDescription('Member').setRequired(true),
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName('amount')
+          .setDescription('Amount to confiscate')
+          .setRequired(true)
+          .setMinValue(1),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason').setRequired(true),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const target = interaction.options.getUser('target', true);
       const amount = interaction.options.getInteger('amount', true);
       const reason = interaction.options.getString('reason', true);
       const settings = await services.economy.getSettings(guild.id);
-      const account = await services.repos.economy.ensureAccount(guild.id, target.id, settings.starterBalance);
+      const account = await services.repos.economy.ensureAccount(
+        guild.id,
+        target.id,
+        settings.starterBalance,
+      );
       const take = Math.min(amount, account.wallet);
       await interaction.deferReply();
       const caseRecord = await services.repos.moderation.createCase({
@@ -667,7 +861,9 @@ export const commands: BotCommand[] = defineCommands([
       await interaction.editReply({
         embeds: [
           take > 0
-            ? successEmbed(`Confiscated **${formatNumber(take)}** ${settings.currencySymbol} from <@${target.id}> (case #${caseRecord.case_number}).`)
+            ? successEmbed(
+                `Confiscated **${formatNumber(take)}** ${settings.currencySymbol} from <@${target.id}> (case #${caseRecord.case_number}).`,
+              )
             : errorEmbed(`<@${target.id}> has nothing in their wallet to confiscate.`),
         ],
       });

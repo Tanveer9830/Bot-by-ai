@@ -35,7 +35,9 @@ export function renderPage<const T>(
       footer: '',
     };
   }
-  const lines = result.items.map((item, index) => renderItem(item, (result.page - 1) * pageSize + index));
+  const lines = result.items.map((item, index) =>
+    renderItem(item, (result.page - 1) * pageSize + index),
+  );
   return {
     page: result,
     title: options.title,
@@ -91,8 +93,7 @@ export async function sendPaginated<const T>(
       color: 0x5865f2,
       footer: footer ? { text: footer } : undefined,
     };
-    const components =
-      pageCount > 1 ? [buildPaginationRow(current, pageCount)] : [];
+    const components = pageCount > 1 ? [buildPaginationRow(current, pageCount)] : [];
     return { embeds: [embed], components } as InteractionReplyOptions & InteractionEditReplyOptions;
   };
 
@@ -127,15 +128,31 @@ export function buildPaginationRow(
 ): ActionRowBuilder<MessageActionRowComponentBuilder> {
   const prefix = INTERACTION_PREFIXES.pagination;
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(`${prefix}:first`).setEmoji('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 1),
-    new ButtonBuilder().setCustomId(`${prefix}:prev`).setEmoji('◀️').setStyle(ButtonStyle.Primary).setDisabled(page <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${prefix}:first`)
+      .setEmoji('⏮️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${prefix}:prev`)
+      .setEmoji('◀️')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(page <= 1),
     new ButtonBuilder()
       .setCustomId(`${prefix}:counter`)
       .setLabel(`${page}/${pageCount}`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true),
-    new ButtonBuilder().setCustomId(`${prefix}:next`).setEmoji('▶️').setStyle(ButtonStyle.Primary).setDisabled(page >= pageCount),
-    new ButtonBuilder().setCustomId(`${prefix}:last`).setEmoji('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(page >= pageCount),
+    new ButtonBuilder()
+      .setCustomId(`${prefix}:next`)
+      .setEmoji('▶️')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(page >= pageCount),
+    new ButtonBuilder()
+      .setCustomId(`${prefix}:last`)
+      .setEmoji('⏭️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= pageCount),
   );
 }
 

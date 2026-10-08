@@ -14,7 +14,6 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type Guild,
-  type TextChannel,
 } from 'discord.js';
 import {
   formatDuration,
@@ -43,7 +42,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function actor(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   return member;
 }
 
@@ -51,14 +51,6 @@ function requireManager(interaction: ChatInputCommandInteraction, action: string
   const member = actor(interaction);
   requireUserPermissions(member, [PermissionFlagsBits.ManageGuild], action);
   return member;
-}
-
-async function resolveTextChannel(guild: Guild, channelId: string): Promise<TextChannel> {
-  const channel = await guild.channels.fetch(channelId).catch(() => null);
-  if (!channel || !channel.isTextBased() || channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice) {
-    throw new UserFacingError('That channel cannot be used for public messages.');
-  }
-  return channel as TextChannel;
 }
 
 const MONTHS = [
@@ -88,36 +80,76 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('start')
           .setDescription('Start a new giveaway')
-          .addStringOption((option) => option.setName('prize').setDescription('What are you giving away?').setRequired(true).setMaxLength(200))
-          .addStringOption((option) => option.setName('duration').setDescription('How long it runs, e.g. 30m, 12h, 2d').setRequired(true))
-          .addIntegerOption((option) => option.setName('winners').setDescription('Number of winners').setMinValue(1).setMaxValue(50))
-          .addChannelOption((option) =>
-            option.setName('channel').setDescription('Channel to post in (defaults to here)').addChannelTypes(ChannelType.GuildText),
+          .addStringOption((option) =>
+            option
+              .setName('prize')
+              .setDescription('What are you giving away?')
+              .setRequired(true)
+              .setMaxLength(200),
           )
-          .addRoleOption((option) => option.setName('required_role').setDescription('Only members with this role can enter'))
-          .addRoleOption((option) => option.setName('bonus_role').setDescription('Members with this role get a double entry')),
+          .addStringOption((option) =>
+            option
+              .setName('duration')
+              .setDescription('How long it runs, e.g. 30m, 12h, 2d')
+              .setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('winners')
+              .setDescription('Number of winners')
+              .setMinValue(1)
+              .setMaxValue(50),
+          )
+          .addChannelOption((option) =>
+            option
+              .setName('channel')
+              .setDescription('Channel to post in (defaults to here)')
+              .addChannelTypes(ChannelType.GuildText),
+          )
+          .addRoleOption((option) =>
+            option.setName('required_role').setDescription('Only members with this role can enter'),
+          )
+          .addRoleOption((option) =>
+            option
+              .setName('bonus_role')
+              .setDescription('Members with this role get a double entry'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('end')
           .setDescription('End a giveaway now and draw the winners')
-          .addIntegerOption((option) => option.setName('id').setDescription('Giveaway id').setRequired(true)),
+          .addIntegerOption((option) =>
+            option.setName('id').setDescription('Giveaway id').setRequired(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('reroll')
           .setDescription('Draw new winners for an ended giveaway')
-          .addIntegerOption((option) => option.setName('id').setDescription('Giveaway id').setRequired(true))
-          .addIntegerOption((option) => option.setName('winners').setDescription('How many winners to draw').setMinValue(1).setMaxValue(20)),
+          .addIntegerOption((option) =>
+            option.setName('id').setDescription('Giveaway id').setRequired(true),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('winners')
+              .setDescription('How many winners to draw')
+              .setMinValue(1)
+              .setMaxValue(20),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('cancel')
           .setDescription('Cancel a giveaway without drawing winners')
-          .addIntegerOption((option) => option.setName('id').setDescription('Giveaway id').setRequired(true)),
+          .addIntegerOption((option) =>
+            option.setName('id').setDescription('Giveaway id').setRequired(true),
+          ),
       )
       .addSubcommand((sub) => sub.setName('list').setDescription('List giveaways in this server'))
-      .addSubcommand((sub) => sub.setName('settings').setDescription('Show the giveaway configuration')),
+      .addSubcommand((sub) =>
+        sub.setName('settings').setDescription('Show the giveaway configuration'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const sub = interaction.options.getSubcommand(true);
@@ -128,7 +160,9 @@ export const commands: BotCommand[] = defineCommands([
         const durationRaw = interaction.options.getString('duration', true);
         const durationMs = parseDurationMs(durationRaw);
         if (!durationMs || durationMs < 60_000) {
-          throw new UserFacingError('Durations look like `30m`, `12h` or `2d` and must be at least one minute.');
+          throw new UserFacingError(
+            'Durations look like `30m`, `12h` or `2d` and must be at least one minute.',
+          );
         }
         const channel = interaction.options.getChannel('channel') ?? interaction.channel;
         if (!channel) throw new UserFacingError('I could not work out which channel to use.');
@@ -179,8 +213,10 @@ export const commands: BotCommand[] = defineCommands([
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const giveaway = await services.repos.community.getGiveaway(id);
-        if (!giveaway || giveaway.guild_id !== guild.id) throw new UserFacingError(`Giveaway #${id} was not found in this server.`);
-        if (giveaway.cancelled) throw new UserFacingError('That giveaway was cancelled, so it cannot be rerolled.');
+        if (!giveaway || giveaway.guild_id !== guild.id)
+          throw new UserFacingError(`Giveaway #${id} was not found in this server.`);
+        if (giveaway.cancelled)
+          throw new UserFacingError('That giveaway was cancelled, so it cannot be rerolled.');
         const entries = await services.repos.community.listEntries(id);
         const previous = new Set(giveaway.winner_ids ?? []);
         const candidates: string[] = [];
@@ -189,7 +225,8 @@ export const commands: BotCommand[] = defineCommands([
           if (!(await guild.members.fetch(entry.user_id).catch(() => null))) continue;
           candidates.push(entry.user_id);
         }
-        if (candidates.length === 0) throw new UserFacingError('There are no other entries to draw from.');
+        if (candidates.length === 0)
+          throw new UserFacingError('There are no other entries to draw from.');
         const winners: string[] = [];
         const pool = [...candidates];
         while (winners.length < Math.min(count, candidates.length) && pool.length > 0) {
@@ -197,13 +234,20 @@ export const commands: BotCommand[] = defineCommands([
           if (picked) winners.push(picked);
         }
         const updated = await services.repos.community.rerollGiveaway(id, winners);
-        if (!updated) throw new UserFacingError('That giveaway could not be updated — it may have been cancelled.');
+        if (!updated)
+          throw new UserFacingError(
+            'That giveaway could not be updated — it may have been cancelled.',
+          );
 
         const channel = guild.channels.cache.get(giveaway.channel_id);
         const announcement = `🎲 Reroll for **${giveaway.prize}**: ${winners.map((winner) => `<@${winner}>`).join(', ')}`;
         if (channel?.isSendable()) await channel.send({ content: announcement }).catch(() => {});
         await interaction.editReply({
-          embeds: [successEmbed(`New winners for giveaway **#${id}**: ${winners.map((winner) => `<@${winner}>`).join(', ')}`)],
+          embeds: [
+            successEmbed(
+              `New winners for giveaway **#${id}**: ${winners.map((winner) => `<@${winner}>`).join(', ')}`,
+            ),
+          ],
         });
         return;
       }
@@ -212,7 +256,8 @@ export const commands: BotCommand[] = defineCommands([
         requireManager(interaction, 'cancel giveaways');
         const id = interaction.options.getInteger('id', true);
         const giveaway = await services.repos.community.getGiveaway(id);
-        if (!giveaway || giveaway.guild_id !== guild.id) throw new UserFacingError(`Giveaway #${id} was not found in this server.`);
+        if (!giveaway || giveaway.guild_id !== guild.id)
+          throw new UserFacingError(`Giveaway #${id} was not found in this server.`);
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const confirmed = await confirmAction(interaction, {
           title: `Cancel giveaway #${id}?`,
@@ -293,26 +338,46 @@ export const commands: BotCommand[] = defineCommands([
           .setName('setup')
           .setDescription('Configure where suggestions are posted')
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Suggestion channel').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Suggestion channel')
+              .addChannelTypes(ChannelType.GuildText),
           )
           .addChannelOption((option) =>
-            option.setName('log_channel').setDescription('Where staff decisions are logged').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('log_channel')
+              .setDescription('Where staff decisions are logged')
+              .addChannelTypes(ChannelType.GuildText),
           )
-          .addBooleanOption((option) => option.setName('enabled').setDescription('Enable or disable suggestions'))
-          .addBooleanOption((option) => option.setName('anonymous').setDescription('Hide the author of suggestions'))
-          .addBooleanOption((option) => option.setName('threads').setDescription('Create a discussion thread per suggestion')),
+          .addBooleanOption((option) =>
+            option.setName('enabled').setDescription('Enable or disable suggestions'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('anonymous').setDescription('Hide the author of suggestions'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('threads').setDescription('Create a discussion thread per suggestion'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('submit')
           .setDescription('Submit a suggestion')
-          .addStringOption((option) => option.setName('content').setDescription('Your suggestion').setRequired(true).setMaxLength(1500)),
+          .addStringOption((option) =>
+            option
+              .setName('content')
+              .setDescription('Your suggestion')
+              .setRequired(true)
+              .setMaxLength(1500),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('resolve')
           .setDescription('Decide on a suggestion')
-          .addIntegerOption((option) => option.setName('id').setDescription('Suggestion id').setRequired(true))
+          .addIntegerOption((option) =>
+            option.setName('id').setDescription('Suggestion id').setRequired(true),
+          )
           .addStringOption((option) =>
             option
               .setName('status')
@@ -325,7 +390,12 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'considered', value: 'considered' },
               ),
           )
-          .addStringOption((option) => option.setName('response').setDescription('Message shown with the decision').setMaxLength(1000)),
+          .addStringOption((option) =>
+            option
+              .setName('response')
+              .setDescription('Message shown with the decision')
+              .setMaxLength(1000),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -361,11 +431,17 @@ export const commands: BotCommand[] = defineCommands([
         if (enabled !== null) patch['enabled'] = enabled;
         if (anonymous !== null) patch['anonymous'] = anonymous;
         if (threads !== null) patch['threadEnabled'] = threads;
-        if (Object.keys(patch).length === 0) throw new UserFacingError('Provide at least one option to change.');
-        const settings = await services.settings.update<SuggestionSettings>(guild.id, 'suggestions', patch, {
-          actorId: interaction.user.id,
-          source: 'command',
-        });
+        if (Object.keys(patch).length === 0)
+          throw new UserFacingError('Provide at least one option to change.');
+        const settings = await services.settings.update<SuggestionSettings>(
+          guild.id,
+          'suggestions',
+          patch,
+          {
+            actorId: interaction.user.id,
+            source: 'command',
+          },
+        );
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
           embeds: [
@@ -397,7 +473,8 @@ export const commands: BotCommand[] = defineCommands([
       if (sub === 'resolve') {
         requireManager(interaction, 'resolve suggestions');
         const id = interaction.options.getInteger('id', true);
-        const status = interaction.options.getString('status', true) as 'accepted' | 'denied' | 'implemented' | 'considered';
+        const status = interaction.options.getString('status', true) as
+          'accepted' | 'denied' | 'implemented' | 'considered';
         const response = interaction.options.getString('response');
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         await services.community.resolveSuggestion({
@@ -407,7 +484,9 @@ export const commands: BotCommand[] = defineCommands([
           staffId: interaction.user.id,
           response: response ?? null,
         });
-        await interaction.editReply({ embeds: [successEmbed(`Suggestion **#${id}** was marked **${status}**.`)] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Suggestion **#${id}** was marked **${status}**.`)],
+        });
         return;
       }
 
@@ -444,21 +523,42 @@ export const commands: BotCommand[] = defineCommands([
           .setName('setup')
           .setDescription('Configure the starboard channel and threshold')
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Starboard channel').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Starboard channel')
+              .addChannelTypes(ChannelType.GuildText),
           )
-          .addIntegerOption((option) => option.setName('threshold').setDescription('Stars required').setMinValue(1).setMaxValue(100))
-          .addStringOption((option) => option.setName('emoji').setDescription('Star emoji (default ⭐)').setMaxLength(64))
-          .addBooleanOption((option) => option.setName('enabled').setDescription('Enable or disable the starboard'))
-          .addBooleanOption((option) => option.setName('self_star').setDescription('Allow authors to star their own message')),
+          .addIntegerOption((option) =>
+            option
+              .setName('threshold')
+              .setDescription('Stars required')
+              .setMinValue(1)
+              .setMaxValue(100),
+          )
+          .addStringOption((option) =>
+            option.setName('emoji').setDescription('Star emoji (default ⭐)').setMaxLength(64),
+          )
+          .addBooleanOption((option) =>
+            option.setName('enabled').setDescription('Enable or disable the starboard'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('self_star').setDescription('Allow authors to star their own message'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('ignore')
           .setDescription('Ignore or unignore a channel')
-          .addChannelOption((option) => option.setName('channel').setDescription('Channel to ignore').setRequired(true))
-          .addBooleanOption((option) => option.setName('remove').setDescription('Remove the channel from the ignore list')),
+          .addChannelOption((option) =>
+            option.setName('channel').setDescription('Channel to ignore').setRequired(true),
+          )
+          .addBooleanOption((option) =>
+            option.setName('remove').setDescription('Remove the channel from the ignore list'),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the starboard configuration')),
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the starboard configuration'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       requireManager(interaction, 'configure the starboard');
@@ -476,11 +576,17 @@ export const commands: BotCommand[] = defineCommands([
         if (emoji) patch['emoji'] = emoji;
         if (enabled !== null) patch['enabled'] = enabled;
         if (selfStar !== null) patch['selfStar'] = selfStar;
-        if (Object.keys(patch).length === 0) throw new UserFacingError('Provide at least one option to change.');
-        const settings = await services.settings.update<StarboardSettings>(guild.id, 'starboard', patch, {
-          actorId: interaction.user.id,
-          source: 'command',
-        });
+        if (Object.keys(patch).length === 0)
+          throw new UserFacingError('Provide at least one option to change.');
+        const settings = await services.settings.update<StarboardSettings>(
+          guild.id,
+          'starboard',
+          patch,
+          {
+            actorId: interaction.user.id,
+            source: 'command',
+          },
+        );
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
           embeds: [
@@ -504,13 +610,20 @@ export const commands: BotCommand[] = defineCommands([
         const next = remove
           ? settings.ignoreChannelIds.filter((id) => id !== channel.id)
           : [...new Set([...settings.ignoreChannelIds, channel.id])];
-        await services.settings.update(guild.id, 'starboard', { ignoreChannelIds: next }, {
-          actorId: interaction.user.id,
-          source: 'command',
-        });
+        await services.settings.update(
+          guild.id,
+          'starboard',
+          { ignoreChannelIds: next },
+          {
+            actorId: interaction.user.id,
+            source: 'command',
+          },
+        );
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          embeds: [successEmbed(`${remove ? 'Unignored' : 'Ignored'} <#${channel.id}> for the starboard.`)],
+          embeds: [
+            successEmbed(`${remove ? 'Unignored' : 'Ignored'} <#${channel.id}> for the starboard.`),
+          ],
         });
         return;
       }
@@ -520,19 +633,21 @@ export const commands: BotCommand[] = defineCommands([
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         embeds: [
-          baseEmbed(COLORS.primary).setTitle('⭐ Starboard status').setDescription(
-            [
-              `Enabled: **${settings.enabled}**`,
-              `Channel: ${settings.channelId ? `<#${settings.channelId}>` : 'not set'}`,
-              `Emoji: ${settings.emoji}`,
-              `Threshold: **${settings.threshold}**`,
-              `Self-star: **${settings.selfStar}**`,
-              `Ignored channels: ${settings.ignoreChannelIds.map((id) => `<#${id}>`).join(', ') || 'none'}`,
-              tracked ? `Tracked members: **${tracked.trackedUsers}**` : null,
-            ]
-              .filter(Boolean)
-              .join('\n'),
-          ),
+          baseEmbed(COLORS.primary)
+            .setTitle('⭐ Starboard status')
+            .setDescription(
+              [
+                `Enabled: **${settings.enabled}**`,
+                `Channel: ${settings.channelId ? `<#${settings.channelId}>` : 'not set'}`,
+                `Emoji: ${settings.emoji}`,
+                `Threshold: **${settings.threshold}**`,
+                `Self-star: **${settings.selfStar}**`,
+                `Ignored channels: ${settings.ignoreChannelIds.map((id) => `<#${id}>`).join(', ') || 'none'}`,
+                tracked ? `Tracked members: **${tracked.trackedUsers}**` : null,
+              ]
+                .filter(Boolean)
+                .join('\n'),
+            ),
         ],
       });
     },
@@ -548,22 +663,56 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('set')
           .setDescription('Save your birthday')
-          .addIntegerOption((option) => option.setName('month').setDescription('Month (1-12)').setRequired(true).setMinValue(1).setMaxValue(12))
-          .addIntegerOption((option) => option.setName('day').setDescription('Day (1-31)').setRequired(true).setMinValue(1).setMaxValue(31))
-          .addIntegerOption((option) => option.setName('year').setDescription('Year (optional, never shown publicly)').setMinValue(1900).setMaxValue(2100)),
+          .addIntegerOption((option) =>
+            option
+              .setName('month')
+              .setDescription('Month (1-12)')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(12),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('day')
+              .setDescription('Day (1-31)')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(31),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('year')
+              .setDescription('Year (optional, never shown publicly)')
+              .setMinValue(1900)
+              .setMaxValue(2100),
+          ),
       )
       .addSubcommand((sub) => sub.setName('remove').setDescription('Delete your saved birthday'))
-      .addSubcommand((sub) => sub.setName('list').setDescription('Upcoming birthdays in this server'))
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('Upcoming birthdays in this server'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('setup')
           .setDescription('Configure birthday announcements')
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Announcement channel').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Announcement channel')
+              .addChannelTypes(ChannelType.GuildText),
           )
-          .addStringOption((option) => option.setName('message').setDescription('Message ({user} is replaced)').setMaxLength(1000))
-          .addRoleOption((option) => option.setName('role').setDescription('Role granted on the birthday'))
-          .addBooleanOption((option) => option.setName('enabled').setDescription('Enable or disable birthdays'))
+          .addStringOption((option) =>
+            option
+              .setName('message')
+              .setDescription('Message ({user} is replaced)')
+              .setMaxLength(1000),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role granted on the birthday'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('enabled').setDescription('Enable or disable birthdays'),
+          )
           .addIntegerOption((option) =>
             option
               .setName('timezone_offset')
@@ -581,7 +730,10 @@ export const commands: BotCommand[] = defineCommands([
         const day = interaction.options.getInteger('day', true);
         const year = interaction.options.getInteger('year');
         const maxDay = new Date(Date.UTC(2024, month, 0)).getUTCDate();
-        if (day > maxDay) throw new UserFacingError(`${MONTHS[month - 1] ?? 'That month'} has only ${maxDay} days.`);
+        if (day > maxDay)
+          throw new UserFacingError(
+            `${MONTHS[month - 1] ?? 'That month'} has only ${maxDay} days.`,
+          );
         await services.community.setBirthday({
           guildId: guild.id,
           userId: interaction.user.id,
@@ -591,16 +743,27 @@ export const commands: BotCommand[] = defineCommands([
         });
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          embeds: [successEmbed(`Saved your birthday as **${day} ${MONTHS[month - 1]}**${year ? ` (${year})` : ''}.`)],
+          embeds: [
+            successEmbed(
+              `Saved your birthday as **${day} ${MONTHS[month - 1]}**${year ? ` (${year})` : ''}.`,
+            ),
+          ],
         });
         return;
       }
 
       if (sub === 'remove') {
-        const removed = await services.repos.community.removeBirthday(guild.id, interaction.user.id);
+        const removed = await services.repos.community.removeBirthday(
+          guild.id,
+          interaction.user.id,
+        );
         await interaction.reply({
           flags: MessageFlags.Ephemeral,
-          embeds: [removed ? successEmbed('Your birthday was deleted.') : warningEmbed('You had no birthday saved here.')],
+          embeds: [
+            removed
+              ? successEmbed('Your birthday was deleted.')
+              : warningEmbed('You had no birthday saved here.'),
+          ],
         });
         return;
       }
@@ -615,7 +778,11 @@ export const commands: BotCommand[] = defineCommands([
             `<@${entry.user_id}> — **${entry.day} ${MONTHS[entry.month - 1]}** ${
               entry.days_until === 0 ? '(today 🎂)' : `(in ${entry.days_until} day(s))`
             }`,
-          { title: '🎂 Upcoming birthdays', pageSize: 10, emptyMessage: 'Nobody has saved a birthday in the next 60 days.' },
+          {
+            title: '🎂 Upcoming birthdays',
+            pageSize: 10,
+            emptyMessage: 'Nobody has saved a birthday in the next 60 days.',
+          },
         );
         return;
       }
@@ -633,11 +800,17 @@ export const commands: BotCommand[] = defineCommands([
       if (role) patch['roleId'] = role.id;
       if (enabled !== null) patch['enabled'] = enabled;
       if (offset !== null) patch['timezoneOffsetMinutes'] = offset;
-      if (Object.keys(patch).length === 0) throw new UserFacingError('Provide at least one option to change.');
-      const settings = await services.settings.update<BirthdaySettings>(guild.id, 'birthday', patch, {
-        actorId: interaction.user.id,
-        source: 'command',
-      });
+      if (Object.keys(patch).length === 0)
+        throw new UserFacingError('Provide at least one option to change.');
+      const settings = await services.settings.update<BirthdaySettings>(
+        guild.id,
+        'birthday',
+        patch,
+        {
+          actorId: interaction.user.id,
+          source: 'command',
+        },
+      );
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         embeds: [
@@ -661,12 +834,19 @@ export const commands: BotCommand[] = defineCommands([
     data: new SlashCommandBuilder()
       .setName('reminder')
       .setDescription('Manage your scheduled reminders')
-      .addSubcommand((sub) => sub.setName('list').setDescription('List your pending reminders in this server'))
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('List your pending reminders in this server'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('cancel')
           .setDescription('Cancel one of your reminders')
-          .addIntegerOption((option) => option.setName('id').setDescription('Reminder id from /reminder list').setRequired(true)),
+          .addIntegerOption((option) =>
+            option
+              .setName('id')
+              .setDescription('Reminder id from /reminder list')
+              .setRequired(true),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -674,19 +854,31 @@ export const commands: BotCommand[] = defineCommands([
 
       if (sub === 'list') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const reminders = await services.repos.community.listUserReminders(guild.id, interaction.user.id, 25);
+        const reminders = await services.repos.community.listUserReminders(
+          guild.id,
+          interaction.user.id,
+          25,
+        );
         await sendPaginated(
           interaction,
           reminders,
           (reminder) =>
             `**#${reminder.id}** — ${truncate(reminder.content, 120)}\n${formatRelativeTimestamp(new Date(reminder.remind_at).getTime())} (${formatTimestamp(new Date(reminder.remind_at).getTime())})`,
-          { title: '⏰ Your reminders', pageSize: 5, emptyMessage: 'You have no pending reminders here.' },
+          {
+            title: '⏰ Your reminders',
+            pageSize: 5,
+            emptyMessage: 'You have no pending reminders here.',
+          },
         );
         return;
       }
 
       const id = interaction.options.getInteger('id', true);
-      const cancelled = await services.repos.community.cancelReminder(guild.id, interaction.user.id, id);
+      const cancelled = await services.repos.community.cancelReminder(
+        guild.id,
+        interaction.user.id,
+        id,
+      );
       await interaction.reply({
         flags: MessageFlags.Ephemeral,
         embeds: [

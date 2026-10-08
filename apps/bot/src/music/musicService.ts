@@ -50,7 +50,8 @@ export class MusicService {
     private readonly settings: GuildSettingsService,
     private readonly logger: Logger,
   ) {
-    if (!config.music.lavalink) throw new Error('MusicService requires LAVALINK_HOST and LAVALINK_PASSWORD');
+    if (!config.music.lavalink)
+      throw new Error('MusicService requires LAVALINK_HOST and LAVALINK_PASSWORD');
     this.node = new LavalinkNode(
       {
         host: config.music.lavalink.host,
@@ -163,7 +164,10 @@ export class MusicService {
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => null);
     if (!response?.ok) return null;
-    const playlist = (await response.json()) as { name?: string; owner?: { display_name?: string } };
+    const playlist = (await response.json()) as {
+      name?: string;
+      owner?: { display_name?: string };
+    };
     return playlist.name ? `${playlist.name}` : null;
   }
 
@@ -190,7 +194,9 @@ export class MusicService {
         );
       }
       if (spotifyFallback) {
-        this.logger.info('spotify link resolved through search', { query: resolved_for_log(result) });
+        this.logger.info('spotify link resolved through search', {
+          query: resolved_for_log(result),
+        });
       }
     }
     if (result.loadType === 'error') {
@@ -271,7 +277,9 @@ export class MusicService {
       if (player.textChannelId) {
         const channel = await guild.channels.fetch(player.textChannelId).catch(() => null);
         if (channel?.isTextBased()) {
-          await channel.send({ embeds: [warningEmbed('The queue is empty — leaving the voice channel.')] }).catch(() => {});
+          await channel
+            .send({ embeds: [warningEmbed('The queue is empty — leaving the voice channel.')] })
+            .catch(() => {});
         }
       }
       const settings = await this.getSettings(guild.id);
@@ -293,7 +301,9 @@ export class MusicService {
     const type = payload.type as string | undefined;
     const guildId = payload.guildId as string | undefined;
     if (!guildId || !type) return;
-    const guild = this.client.guilds.cache.get(guildId) ?? (await this.client.guilds.fetch(guildId).catch(() => null));
+    const guild =
+      this.client.guilds.cache.get(guildId) ??
+      (await this.client.guilds.fetch(guildId).catch(() => null));
     if (!guild) return;
     const player = this.getPlayer(guildId);
     if (!player) return;
@@ -338,7 +348,9 @@ export class MusicService {
         if (player.textChannelId) {
           const channel = await guild.channels.fetch(player.textChannelId).catch(() => null);
           if (channel?.isTextBased()) {
-            await channel.send({ embeds: [warningEmbed('Playback stalled — skipping to the next track.')] }).catch(() => {});
+            await channel
+              .send({ embeds: [warningEmbed('Playback stalled — skipping to the next track.')] })
+              .catch(() => {});
           }
         }
         await this.skip(guild.id).catch(() => {});
@@ -356,17 +368,31 @@ export class MusicService {
     }
   }
 
-  private async announceNowPlaying(guild: Guild, player: GuildPlayer, track: LavalinkTrack): Promise<void> {
+  private async announceNowPlaying(
+    guild: Guild,
+    player: GuildPlayer,
+    track: LavalinkTrack,
+  ): Promise<void> {
     const settings = await this.getSettings(guild.id);
     if (!settings.announceNowPlaying || !player.textChannelId) return;
     const channel = await guild.channels.fetch(player.textChannelId).catch(() => null);
     if (!channel?.isTextBased()) return;
     const embed = baseEmbed(COLORS.music)
       .setTitle('🎶 Now playing')
-      .setDescription(`**[${track.info.title}](${track.info.uri ?? 'https://lavalink.dev'})**\nby ${track.info.author}`)
+      .setDescription(
+        `**[${track.info.title}](${track.info.uri ?? 'https://lavalink.dev'})**\nby ${track.info.author}`,
+      )
       .addFields(
-        { name: 'Duration', value: track.info.isStream ? 'live stream' : formatDuration(track.info.length), inline: true },
-        { name: 'Requested by', value: `<@${player.current?.requestedBy ?? 'unknown'}>`, inline: true },
+        {
+          name: 'Duration',
+          value: track.info.isStream ? 'live stream' : formatDuration(track.info.length),
+          inline: true,
+        },
+        {
+          name: 'Requested by',
+          value: `<@${player.current?.requestedBy ?? 'unknown'}>`,
+          inline: true,
+        },
       );
     if (track.info.artworkUrl) embed.setThumbnail(track.info.artworkUrl);
     const message = await channel.send({ embeds: [embed] }).catch(() => null);
@@ -437,7 +463,8 @@ export class MusicService {
   async seek(guildId: string, positionMs: number): Promise<void> {
     const player = this.getPlayer(guildId);
     if (!player?.current) throw new UserFacingError('Nothing is playing right now.');
-    if (player.current.track.info.isStream) throw new UserFacingError('Cannot seek in a live stream.');
+    if (player.current.track.info.isStream)
+      throw new UserFacingError('Cannot seek in a live stream.');
     if (positionMs < 0 || positionMs > player.current.track.info.length) {
       throw new UserFacingError('That position is outside the track length.');
     }
@@ -461,7 +488,8 @@ export class MusicService {
   removeFromQueue(guildId: string, position: number): string {
     const player = this.getPlayer(guildId);
     if (!player) throw new UserFacingError('The bot is not in a voice channel.');
-    if (position < 1 || position > player.queue.length) throw new UserFacingError('Invalid queue position.');
+    if (position < 1 || position > player.queue.length)
+      throw new UserFacingError('Invalid queue position.');
     const [removed] = player.queue.splice(position - 1, 1);
     return removed?.track.info.title ?? 'unknown';
   }
@@ -515,4 +543,3 @@ export class MusicService {
 function resolved_for_log(result: { tracks: LavalinkTrack[] }): string {
   return result.tracks[0]?.info.title ?? '(no track)';
 }
-

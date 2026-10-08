@@ -37,4 +37,16 @@ export default tseslint.config(
     files: ['apps/dashboard/**/*.tsx', 'apps/dashboard/**/*.ts'],
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
   },
+  {
+    files: ['**/*.mjs', '**/*.js'],
+    ignores: ['**/dist/**', '**/.next/**'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    files: ['packages/shared/src/logging/logger.ts'],
+    rules: {
+      // Deliberate: control characters must be escaped before anything is logged.
+      'no-control-regex': 'off',
+    },
+  },
 );

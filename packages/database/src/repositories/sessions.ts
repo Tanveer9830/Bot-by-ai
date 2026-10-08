@@ -8,6 +8,11 @@ export interface SessionRow {
   last_seen_at: Date;
   expires_at: Date;
   revoked_at: Date | null;
+  /** Dashboard-only profile cache (see migration 0002). */
+  username?: string | null;
+  global_name?: string | null;
+  avatar?: string | null;
+  user_guild_ids?: unknown;
 }
 
 /** Only the hash of the token is persisted — a database leak cannot mint sessions. */
@@ -24,23 +29,56 @@ export class SessionRepository {
     expiresAt: Date;
     userAgent?: string | null;
     ipHash?: string | null;
+    username?: string | null;
+    globalName?: string | null;
+    avatar?: string | null;
+    userGuildIds?: readonly string[];
   }): Promise<string> {
     const id = randomUUID();
     await this.db.query(
-      `INSERT INTO dashboard_sessions (id, user_id, token_hash, expires_at, user_agent, ip_hash)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, input.userId, input.tokenHash, input.expiresAt, input.userAgent ?? null, input.ipHash ?? null],
+      `INSERT INTO dashboard_sessions
+         (id, user_id, token_hash, expires_at, user_agent, ip_hash, username, global_name, avatar, user_guild_ids)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
+      [
+        id,
+        input.userId,
+        input.tokenHash,
+        input.expiresAt,
+        input.userAgent ?? null,
+        input.ipHash ?? null,
+        input.username ?? null,
+        input.globalName ?? null,
+        input.avatar ?? null,
+        JSON.stringify(input.userGuildIds ?? []),
+      ],
     );
     return id;
   }
 
+  /** Backwards-compatible name used by the bot code paths. */
   async findValid(tokenHash: string): Promise<SessionRow | null> {
+    return this.findActiveByTokenHash(tokenHash);
+  }
+
+  async findActiveByTokenHash(tokenHash: string): Promise<SessionRow | null> {
     const { rows } = await this.db.query<SessionRow>(
       `SELECT * FROM dashboard_sessions
         WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()`,
       [tokenHash],
     );
     return rows[0] ?? null;
+  }
+
+  async revokeByTokenHash(tokenHash: string): Promise<boolean> {
+    return this.revoke(tokenHash);
+  }
+
+  async countActive(): Promise<number> {
+    const { rows } = await this.db.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM dashboard_sessions
+        WHERE revoked_at IS NULL AND expires_at > now()`,
+    );
+    return Number(rows[0]?.count ?? 0);
   }
 
   async touch(id: string): Promise<void> {

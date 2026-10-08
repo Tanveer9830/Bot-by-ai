@@ -8,7 +8,14 @@ import {
   type Role,
   type TextChannel,
 } from 'discord.js';
-import { formatDuration, formatNumber, formatTimestamp, parseDurationMs, truncate, UserFacingError } from '@bot-by-ai/shared';
+import {
+  formatDuration,
+  formatNumber,
+  formatTimestamp,
+  parseDurationMs,
+  truncate,
+  UserFacingError,
+} from '@bot-by-ai/shared';
 import { COLORS } from '../core/constants.js';
 import { defineCommands, type BotCommand, type CommandContext } from '../core/command.js';
 import { baseEmbed, successEmbed, warningEmbed } from '../core/embeds.js';
@@ -23,7 +30,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function actorFrom(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   return member;
 }
 
@@ -32,7 +40,7 @@ async function buildRequest(interaction: ChatInputCommandInteraction, withReason
   const guild = guildOf(interaction);
   const actor = actorFrom(interaction);
   const target = await resolveTarget(interaction, 'user');
-  const reason = withReason ? interaction.options.getString('reason') ?? undefined : undefined;
+  const reason = withReason ? (interaction.options.getString('reason') ?? undefined) : undefined;
   const request: ModerationRequest = {
     guild,
     actor,
@@ -51,16 +59,34 @@ export const commands: BotCommand[] = defineCommands([
       .setName('ban')
       .setDescription('Ban a member (optionally deleting recent messages)')
       .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-      .addUserOption((option) => option.setName('user').setDescription('Member to ban').setRequired(true))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason recorded in the case'))
-      .addIntegerOption((option) => option.setName('delete_days').setDescription('Delete their messages from the last N days (0-7)').setMinValue(0).setMaxValue(7))
-      .addStringOption((option) => option.setName('duration').setDescription('Temporary ban, e.g. 7d (recorded for scheduled review)')),
+      .addUserOption((option) =>
+        option.setName('user').setDescription('Member to ban').setRequired(true),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason recorded in the case'),
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName('delete_days')
+          .setDescription('Delete their messages from the last N days (0-7)')
+          .setMinValue(0)
+          .setMaxValue(7),
+      )
+      .addStringOption((option) =>
+        option
+          .setName('duration')
+          .setDescription('Temporary ban, e.g. 7d (recorded for scheduled review)'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const { request, target, reason } = await buildRequest(interaction);
       const deleteDays = interaction.options.getInteger('delete_days') ?? 0;
       const durationMs = parseDurationMs(interaction.options.getString('duration') ?? '') ?? null;
       await interaction.deferReply();
-      const result = await services.moderation.ban({ ...request, deleteMessageSeconds: deleteDays * 86_400, durationMs });
+      const result = await services.moderation.ban({
+        ...request,
+        deleteMessageSeconds: deleteDays * 86_400,
+        durationMs,
+      });
       await interaction.editReply({
         embeds: [
           successEmbed(
@@ -85,7 +111,9 @@ export const commands: BotCommand[] = defineCommands([
       .setDescription('Unban a user by id')
       .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
       .addStringOption((option) => option.setName('reason').setDescription('Reason'))
-      .addStringOption((option) => option.setName('user').setDescription('User id or mention').setRequired(true)),
+      .addStringOption((option) =>
+        option.setName('user').setDescription('User id or mention').setRequired(true),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const actor = actorFrom(interaction);
@@ -102,7 +130,9 @@ export const commands: BotCommand[] = defineCommands([
         reason: interaction.options.getString('reason') ?? null,
         source: 'command',
       });
-      await interaction.editReply({ embeds: [successEmbed(`Unbanned **${banned.user.tag}** — case #${result.caseNumber}.`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`Unbanned **${banned.user.tag}** — case #${result.caseNumber}.`)],
+      });
     },
   },
   {
@@ -111,13 +141,19 @@ export const commands: BotCommand[] = defineCommands([
       .setName('kick')
       .setDescription('Kick a member')
       .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
-      .addUserOption((option) => option.setName('user').setDescription('Member to kick').setRequired(true))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason recorded in the case')),
+      .addUserOption((option) =>
+        option.setName('user').setDescription('Member to kick').setRequired(true),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason recorded in the case'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const { request, target } = await buildRequest(interaction);
       await interaction.deferReply();
       const result = await services.moderation.kick(request);
-      await interaction.editReply({ embeds: [successEmbed(`Kicked **${target.user.tag}** — case #${result.caseNumber}.`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`Kicked **${target.user.tag}** — case #${result.caseNumber}.`)],
+      });
     },
   },
   {
@@ -127,16 +163,23 @@ export const commands: BotCommand[] = defineCommands([
       .setDescription('Time out a member (Discord maximum: 28 days)')
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
       .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-      .addStringOption((option) => option.setName('duration').setDescription('e.g. 10m, 2h, 7d').setRequired(true))
+      .addStringOption((option) =>
+        option.setName('duration').setDescription('e.g. 10m, 2h, 7d').setRequired(true),
+      )
       .addStringOption((option) => option.setName('reason').setDescription('Reason')),
     async execute({ interaction, services }: CommandContext) {
       const { request, target } = await buildRequest(interaction);
       const durationMs = parseDurationMs(interaction.options.getString('duration', true));
-      if (!durationMs) throw new UserFacingError('Could not parse that duration — try `10m`, `2h` or `7d`.');
+      if (!durationMs)
+        throw new UserFacingError('Could not parse that duration — try `10m`, `2h` or `7d`.');
       await interaction.deferReply();
       const result = await services.moderation.timeout({ ...request, durationMs });
       await interaction.editReply({
-        embeds: [successEmbed(`Timed out **${target.user.tag}** for ${formatDuration(durationMs)} — case #${result.caseNumber}.`)],
+        embeds: [
+          successEmbed(
+            `Timed out **${target.user.tag}** for ${formatDuration(durationMs)} — case #${result.caseNumber}.`,
+          ),
+        ],
       });
     },
   },
@@ -152,7 +195,11 @@ export const commands: BotCommand[] = defineCommands([
       const { request, target } = await buildRequest(interaction);
       await interaction.deferReply();
       const result = await services.moderation.removeTimeout(request);
-      await interaction.editReply({ embeds: [successEmbed(`Timeout removed from **${target.user.tag}** — case #${result.caseNumber}.`)] });
+      await interaction.editReply({
+        embeds: [
+          successEmbed(`Timeout removed from **${target.user.tag}** — case #${result.caseNumber}.`),
+        ],
+      });
     },
   },
   {
@@ -162,7 +209,9 @@ export const commands: BotCommand[] = defineCommands([
       .setDescription('Warn a member (may trigger escalation)')
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
       .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason').setRequired(true)),
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason').setRequired(true),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const { request, target } = await buildRequest(interaction);
       await interaction.deferReply();
@@ -173,7 +222,9 @@ export const commands: BotCommand[] = defineCommands([
             [
               `Warned **${target.user.tag}** — case #${result.caseNumber}.`,
               `Active warnings: **${result.warningCount}**.`,
-              result.escalation ? `Escalation applied: **${result.escalation}**.` : 'No escalation threshold reached.',
+              result.escalation
+                ? `Escalation applied: **${result.escalation}**.`
+                : 'No escalation threshold reached.',
             ].join('\n'),
           ),
         ],
@@ -216,8 +267,12 @@ export const commands: BotCommand[] = defineCommands([
       .setName('unwarn')
       .setDescription('Remove a single warning by id')
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-      .addIntegerOption((option) => option.setName('id').setDescription('Warning id (see /warnings)').setRequired(true))
-      .addStringOption((option) => option.setName('reason').setDescription('Why is it being removed?')),
+      .addIntegerOption((option) =>
+        option.setName('id').setDescription('Warning id (see /warnings)').setRequired(true),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Why is it being removed?'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const id = interaction.options.getInteger('id', true);
@@ -234,7 +289,11 @@ export const commands: BotCommand[] = defineCommands([
         });
       }
       await interaction.reply({
-        embeds: [removed ? successEmbed(`Warning \`#${id}\` removed.`) : warningEmbed(`No active warning with id \`${id}\`.`)],
+        embeds: [
+          removed
+            ? successEmbed(`Warning \`#${id}\` removed.`)
+            : warningEmbed(`No active warning with id \`${id}\`.`),
+        ],
         flags: MessageFlags.Ephemeral,
       });
     },
@@ -269,7 +328,10 @@ export const commands: BotCommand[] = defineCommands([
         targetId: user.id,
         metadata: { count },
       });
-      await interaction.editReply({ embeds: [successEmbed(`Cleared ${count} warning(s) for <@${user.id}>.`)], components: [] });
+      await interaction.editReply({
+        embeds: [successEmbed(`Cleared ${count} warning(s) for <@${user.id}>.`)],
+        components: [],
+      });
     },
   },
   {
@@ -278,9 +340,20 @@ export const commands: BotCommand[] = defineCommands([
       .setName('purge')
       .setDescription('Bulk delete messages in this channel (last 14 days)')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-      .addIntegerOption((option) => option.setName('count').setDescription('How many messages (1-100)').setRequired(true).setMinValue(1).setMaxValue(100))
-      .addUserOption((option) => option.setName('user').setDescription('Only this member’s messages'))
-      .addStringOption((option) => option.setName('contains').setDescription('Only messages containing this text'))
+      .addIntegerOption((option) =>
+        option
+          .setName('count')
+          .setDescription('How many messages (1-100)')
+          .setRequired(true)
+          .setMinValue(1)
+          .setMaxValue(100),
+      )
+      .addUserOption((option) =>
+        option.setName('user').setDescription('Only this member’s messages'),
+      )
+      .addStringOption((option) =>
+        option.setName('contains').setDescription('Only messages containing this text'),
+      )
       .addBooleanOption((option) => option.setName('bots').setDescription('Only bot messages')),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -302,7 +375,9 @@ export const commands: BotCommand[] = defineCommands([
         .filter((message) => (botsOnly ? message.author.bot : true))
         .slice(0, count);
       if (candidates.length === 0) {
-        throw new UserFacingError('No messages matched (Discord only bulk-deletes messages younger than 14 days).');
+        throw new UserFacingError(
+          'No messages matched (Discord only bulk-deletes messages younger than 14 days).',
+        );
       }
       const deleted = await (channel as TextChannel).bulkDelete(candidates, true);
       await services.logging
@@ -314,7 +389,9 @@ export const commands: BotCommand[] = defineCommands([
           auditAction: 'messages.purge',
         })
         .catch(() => {});
-      await interaction.editReply({ embeds: [successEmbed(`Deleted ${deleted.size} message(s).`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`Deleted ${deleted.size} message(s).`)],
+      });
     },
   },
   {
@@ -323,18 +400,38 @@ export const commands: BotCommand[] = defineCommands([
       .setName('slowmode')
       .setDescription('Set the slowmode for a channel')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
-      .addStringOption((option) => option.setName('duration').setDescription('e.g. 5s, 1m, off').setRequired(true))
-      .addChannelOption((option) => option.setName('channel').setDescription('Channel (defaults to here)')),
+      .addStringOption((option) =>
+        option.setName('duration').setDescription('e.g. 5s, 1m, off').setRequired(true),
+      )
+      .addChannelOption((option) =>
+        option.setName('channel').setDescription('Channel (defaults to here)'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const member = actorFrom(interaction);
       const raw = interaction.options.getString('duration', true).toLowerCase();
-      const seconds = raw === 'off' || raw === '0' ? 0 : Math.round((parseDurationMs(raw) ?? 0) / 1000);
-      if (raw !== 'off' && seconds <= 0) throw new UserFacingError('Use `off`, `5s`, `1m` … Discord allows 0-21600 seconds.');
-      if (seconds > 21_600) throw new UserFacingError('Discord allows at most 6 hours (21600 seconds) of slowmode per channel.');
-      const result = await services.moderation.setSlowmode(guild, interaction.options.getChannel('channel')?.id ?? interaction.channelId, seconds, member);
+      const seconds =
+        raw === 'off' || raw === '0' ? 0 : Math.round((parseDurationMs(raw) ?? 0) / 1000);
+      if (raw !== 'off' && seconds <= 0)
+        throw new UserFacingError('Use `off`, `5s`, `1m` … Discord allows 0-21600 seconds.');
+      if (seconds > 21_600)
+        throw new UserFacingError(
+          'Discord allows at most 6 hours (21600 seconds) of slowmode per channel.',
+        );
+      const result = await services.moderation.setSlowmode(
+        guild,
+        interaction.options.getChannel('channel')?.id ?? interaction.channelId,
+        seconds,
+        member,
+      );
       await interaction.reply({
-        embeds: [successEmbed(result.seconds > 0 ? `Slowmode in **${result.channelName}** set to ${result.seconds}s.` : `Slowmode disabled in **${result.channelName}**.`)],
+        embeds: [
+          successEmbed(
+            result.seconds > 0
+              ? `Slowmode in **${result.channelName}** set to ${result.seconds}s.`
+              : `Slowmode disabled in **${result.channelName}**.`,
+          ),
+        ],
         flags: MessageFlags.Ephemeral,
       });
     },
@@ -345,8 +442,12 @@ export const commands: BotCommand[] = defineCommands([
       .setName('lock')
       .setDescription('Lock a channel for @everyone')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
-      .addChannelOption((option) => option.setName('channel').setDescription('Channel (defaults to here)'))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason shown in the audit log')),
+      .addChannelOption((option) =>
+        option.setName('channel').setDescription('Channel (defaults to here)'),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason shown in the audit log'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const member = actorFrom(interaction);
@@ -357,7 +458,11 @@ export const commands: BotCommand[] = defineCommands([
         member,
         interaction.options.getString('reason') ?? 'No reason provided',
       );
-      await interaction.editReply({ embeds: [successEmbed(`🔒 **${result.channelName}** is locked. Use \`/unlock\` to reopen it.`)] });
+      await interaction.editReply({
+        embeds: [
+          successEmbed(`🔒 **${result.channelName}** is locked. Use \`/unlock\` to reopen it.`),
+        ],
+      });
     },
   },
   {
@@ -366,8 +471,12 @@ export const commands: BotCommand[] = defineCommands([
       .setName('unlock')
       .setDescription('Unlock a locked channel')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
-      .addChannelOption((option) => option.setName('channel').setDescription('Channel (defaults to here)'))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason shown in the audit log')),
+      .addChannelOption((option) =>
+        option.setName('channel').setDescription('Channel (defaults to here)'),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason shown in the audit log'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const member = actorFrom(interaction);
@@ -378,7 +487,9 @@ export const commands: BotCommand[] = defineCommands([
         member,
         interaction.options.getString('reason') ?? 'No reason provided',
       );
-      await interaction.editReply({ embeds: [successEmbed(`🔓 **${result.channelName}** is unlocked.`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`🔓 **${result.channelName}** is unlocked.`)],
+      });
     },
   },
   {
@@ -388,7 +499,9 @@ export const commands: BotCommand[] = defineCommands([
       .setDescription('Change or reset a member nickname')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames)
       .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-      .addStringOption((option) => option.setName('nickname').setDescription('New nickname (omit to reset)').setMaxLength(32)),
+      .addStringOption((option) =>
+        option.setName('nickname').setDescription('New nickname (omit to reset)').setMaxLength(32),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const { request, target } = await buildRequest(interaction, false);
       const nickname = interaction.options.getString('nickname') ?? null;
@@ -415,46 +528,68 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('add')
           .setDescription('Add a role to a member')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true))
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role').setRequired(true),
+          )
           .addStringOption((option) => option.setName('reason').setDescription('Reason')),
       )
       .addSubcommand((sub) =>
         sub
           .setName('remove')
           .setDescription('Remove a role from a member')
-          .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-          .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true))
+          .addUserOption((option) =>
+            option.setName('user').setDescription('Member').setRequired(true),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role').setRequired(true),
+          )
           .addStringOption((option) => option.setName('reason').setDescription('Reason')),
       )
       .addSubcommand((sub) =>
         sub
           .setName('create')
           .setDescription('Create a role')
-          .addStringOption((option) => option.setName('name').setDescription('Role name').setRequired(true).setMaxLength(100))
-          .addStringOption((option) => option.setName('color').setDescription('Hex colour like #5865f2'))
-          .addBooleanOption((option) => option.setName('hoist').setDescription('Show separately in the member list'))
-          .addBooleanOption((option) => option.setName('mentionable').setDescription('Allow anyone to mention it')),
+          .addStringOption((option) =>
+            option.setName('name').setDescription('Role name').setRequired(true).setMaxLength(100),
+          )
+          .addStringOption((option) =>
+            option.setName('color').setDescription('Hex colour like #5865f2'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('hoist').setDescription('Show separately in the member list'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('mentionable').setDescription('Allow anyone to mention it'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('delete')
           .setDescription('Delete a role')
-          .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true))
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role').setRequired(true),
+          )
           .addStringOption((option) => option.setName('reason').setDescription('Reason')),
       )
       .addSubcommand((sub) =>
         sub
           .setName('all')
           .setDescription('Give everyone a role')
-          .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true))
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role').setRequired(true),
+          )
           .addBooleanOption((option) => option.setName('bots').setDescription('Include bots')),
       )
       .addSubcommand((sub) =>
         sub
           .setName('info')
           .setDescription('List members that have a role')
-          .addRoleOption((option) => option.setName('role').setDescription('Role').setRequired(true)),
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role').setRequired(true),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -483,19 +618,26 @@ export const commands: BotCommand[] = defineCommands([
         const color = interaction.options.getString('color');
         const role = await guild.roles.create({
           name: interaction.options.getString('name', true),
-          color: color && /^#?[0-9a-fA-F]{6}$/.test(color) ? Number.parseInt(color.replace('#', ''), 16) : undefined,
+          color:
+            color && /^#?[0-9a-fA-F]{6}$/.test(color)
+              ? Number.parseInt(color.replace('#', ''), 16)
+              : undefined,
           hoist: interaction.options.getBoolean('hoist') ?? false,
           mentionable: interaction.options.getBoolean('mentionable') ?? false,
           reason: `Created by ${member.user.tag} via /role create`,
         });
-        await interaction.reply({ embeds: [successEmbed(`Created <@&${role.id}>.`)], flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          embeds: [successEmbed(`Created <@&${role.id}>.`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
 
       if (sub === 'delete') {
         const role = interaction.options.getRole('role', true) as Role;
         const me = guild.members.me;
-        if (!me || role.position >= me.roles.highest.position) throw new UserFacingError('That role is above my highest role.');
+        if (!me || role.position >= me.roles.highest.position)
+          throw new UserFacingError('That role is above my highest role.');
         await interaction.deferReply();
         const confirmed = await confirmAction(interaction, {
           title: 'Delete role',
@@ -508,7 +650,9 @@ export const commands: BotCommand[] = defineCommands([
         }
         const name = role.name;
         const count = role.members.size;
-        await role.delete(interaction.options.getString('reason') ?? `Deleted by ${member.user.tag}`);
+        await role.delete(
+          interaction.options.getString('reason') ?? `Deleted by ${member.user.tag}`,
+        );
         await services.repos.audit.log({
           guildId: guild.id,
           actorId: interaction.user.id,
@@ -518,7 +662,10 @@ export const commands: BotCommand[] = defineCommands([
           targetId: role.id,
           metadata: { name, members: count },
         });
-        await interaction.editReply({ embeds: [successEmbed(`Deleted role **${name}**.`)], components: [] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Deleted role **${name}**.`)],
+          components: [],
+        });
         return;
       }
 
@@ -526,7 +673,8 @@ export const commands: BotCommand[] = defineCommands([
         const role = interaction.options.getRole('role', true) as Role;
         const includeBots = interaction.options.getBoolean('bots') ?? false;
         const me = guild.members.me;
-        if (!me || role.position >= me.roles.highest.position) throw new UserFacingError('That role is above my highest role.');
+        if (!me || role.position >= me.roles.highest.position)
+          throw new UserFacingError('That role is above my highest role.');
         await interaction.deferReply();
         const confirmed = await confirmAction(interaction, {
           title: 'Give everyone a role',
@@ -543,12 +691,19 @@ export const commands: BotCommand[] = defineCommands([
         for (const target of guild.members.cache.values()) {
           if (!includeBots && target.user.bot) continue;
           if (target.roles.cache.has(role.id)) continue;
-          const ok = await target.roles.add(role, `Mass role grant by ${member.user.tag}`).then(() => true).catch(() => false);
+          const ok = await target.roles
+            .add(role, `Mass role grant by ${member.user.tag}`)
+            .then(() => true)
+            .catch(() => false);
           if (ok) added += 1;
           else failed += 1;
         }
         await interaction.editReply({
-          embeds: [successEmbed(`Added <@&${role.id}> to ${added} member(s).${failed > 0 ? ` ${failed} failed (check hierarchy/permissions).` : ''}`)],
+          embeds: [
+            successEmbed(
+              `Added <@&${role.id}> to ${added} member(s).${failed > 0 ? ` ${failed} failed (check hierarchy/permissions).` : ''}`,
+            ),
+          ],
           components: [],
         });
         return;
@@ -560,7 +715,11 @@ export const commands: BotCommand[] = defineCommands([
         interaction,
         [...role.members.values()],
         (target) => `<@${target.id}> — ${truncate(target.user.tag, 60)}`,
-        { title: `🎭 Members with ${role.name} (${role.members.size})`, pageSize: 25, emptyMessage: 'Nobody has that role.' },
+        {
+          title: `🎭 Members with ${role.name} (${role.members.size})`,
+          pageSize: 25,
+          emptyMessage: 'Nobody has that role.',
+        },
       );
     },
   },
@@ -574,7 +733,9 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('view')
           .setDescription('Show one case')
-          .addIntegerOption((option) => option.setName('number').setDescription('Case number').setRequired(true).setMinValue(1)),
+          .addIntegerOption((option) =>
+            option.setName('number').setDescription('Case number').setRequired(true).setMinValue(1),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -598,14 +759,24 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('revoke')
           .setDescription('Revoke a case (lifts bans/timeouts where possible)')
-          .addIntegerOption((option) => option.setName('number').setDescription('Case number').setRequired(true).setMinValue(1))
-          .addStringOption((option) => option.setName('reason').setDescription('Why is it revoked?')),
+          .addIntegerOption((option) =>
+            option.setName('number').setDescription('Case number').setRequired(true).setMinValue(1),
+          )
+          .addStringOption((option) =>
+            option.setName('reason').setDescription('Why is it revoked?'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('stats')
           .setDescription('Show moderation statistics')
-          .addIntegerOption((option) => option.setName('days').setDescription('Window in days (default 30)').setMinValue(1).setMaxValue(365)),
+          .addIntegerOption((option) =>
+            option
+              .setName('days')
+              .setDescription('Window in days (default 30)')
+              .setMinValue(1)
+              .setMaxValue(365),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -623,12 +794,26 @@ export const commands: BotCommand[] = defineCommands([
               .addFields(
                 { name: 'Member', value: `<@${record.user_id}>`, inline: true },
                 { name: 'Moderator', value: `<@${record.moderator_id}>`, inline: true },
-                { name: 'Created', value: formatTimestamp(new Date(record.created_at).getTime()), inline: true },
-                { name: 'Expires', value: record.expires_at ? formatTimestamp(new Date(record.expires_at).getTime()) : 'never', inline: true },
+                {
+                  name: 'Created',
+                  value: formatTimestamp(new Date(record.created_at).getTime()),
+                  inline: true,
+                },
+                {
+                  name: 'Expires',
+                  value: record.expires_at
+                    ? formatTimestamp(new Date(record.expires_at).getTime())
+                    : 'never',
+                  inline: true,
+                },
                 { name: 'Status', value: record.status, inline: true },
                 { name: 'Source', value: record.source, inline: true },
                 { name: 'Appeal', value: record.appeal_status || 'none', inline: true },
-                { name: 'Revoked by', value: record.revoked_by ? `<@${record.revoked_by}>` : '—', inline: true },
+                {
+                  name: 'Revoked by',
+                  value: record.revoked_by ? `<@${record.revoked_by}>` : '—',
+                  inline: true,
+                },
               ),
           ],
           flags: MessageFlags.Ephemeral,
@@ -650,7 +835,11 @@ export const commands: BotCommand[] = defineCommands([
           result.rows,
           (record) =>
             `**#${record.case_number}** \`${record.action}\` <@${record.user_id}> — ${truncate(record.reason ?? '', 120)}\nby <@${record.moderator_id}> • ${formatTimestamp(new Date(record.created_at).getTime())}${record.status === 'revoked' ? ' • **revoked**' : ''}`,
-          { title: `📁 Cases (${result.rows.length} of ${result.total})`, pageSize: 8, emptyMessage: 'No cases recorded yet.' },
+          {
+            title: `📁 Cases (${result.rows.length} of ${result.total})`,
+            pageSize: 8,
+            emptyMessage: 'No cases recorded yet.',
+          },
         );
         return;
       }
@@ -665,16 +854,29 @@ export const commands: BotCommand[] = defineCommands([
           interaction.user.id,
           interaction.options.getString('reason') ?? undefined,
         );
-        if (!revoked) throw new UserFacingError(`Case #${number} is already revoked (or was not found).`);
+        if (!revoked)
+          throw new UserFacingError(`Case #${number} is already revoked (or was not found).`);
         let note = '';
         if (record.action === 'ban') {
-          const unbanned = await guild.bans.remove(record.user_id, `Case #${number} revoked by ${interaction.user.tag}`).then(() => true).catch(() => false);
-          note = unbanned ? ' The ban was lifted.' : ' I could not lift the ban — check my permissions.';
+          const unbanned = await guild.bans
+            .remove(record.user_id, `Case #${number} revoked by ${interaction.user.tag}`)
+            .then(() => true)
+            .catch(() => false);
+          note = unbanned
+            ? ' The ban was lifted.'
+            : ' I could not lift the ban — check my permissions.';
         } else if (record.action === 'timeout') {
           const target = await guild.members.fetch(record.user_id).catch(() => null);
           if (target) {
             await services.moderation
-              .removeTimeout({ guild, actor: actorFrom(interaction), targetMember: target, targetUser: target.user, reason: `Case #${number} revoked`, source: 'command' })
+              .removeTimeout({
+                guild,
+                actor: actorFrom(interaction),
+                targetMember: target,
+                targetUser: target.user,
+                reason: `Case #${number} revoked`,
+                source: 'command',
+              })
               .catch(() => {});
             note = ' The timeout was removed.';
           }
@@ -688,7 +890,10 @@ export const commands: BotCommand[] = defineCommands([
           targetId: String(number),
           metadata: { action: record.action },
         });
-        await interaction.reply({ embeds: [successEmbed(`Case #${number} revoked.${note}`)], flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          embeds: [successEmbed(`Case #${number} revoked.${note}`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
 
@@ -698,7 +903,11 @@ export const commands: BotCommand[] = defineCommands([
         embeds: [
           baseEmbed(COLORS.primary)
             .setTitle(`📊 Moderation statistics (last ${days} days)`)
-            .setDescription(stats.length === 0 ? 'No moderation actions in that window.' : stats.map((row) => `\`${row.action}\` — ${formatNumber(row.count)}`).join('\n')),
+            .setDescription(
+              stats.length === 0
+                ? 'No moderation actions in that window.'
+                : stats.map((row) => `\`${row.action}\` — ${formatNumber(row.count)}`).join('\n'),
+            ),
         ],
         flags: MessageFlags.Ephemeral,
       });
@@ -711,7 +920,9 @@ export const commands: BotCommand[] = defineCommands([
       .setDescription('Add an internal note to a member’s case history')
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
       .addUserOption((option) => option.setName('user').setDescription('Member').setRequired(true))
-      .addStringOption((option) => option.setName('text').setDescription('Note text').setRequired(true).setMaxLength(1000)),
+      .addStringOption((option) =>
+        option.setName('text').setDescription('Note text').setRequired(true).setMaxLength(1000),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const user = interaction.options.getUser('user', true);
@@ -738,8 +949,16 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('submit')
           .setDescription('Appeal one of your own cases')
-          .addIntegerOption((option) => option.setName('case').setDescription('Case number').setRequired(true).setMinValue(1))
-          .addStringOption((option) => option.setName('message').setDescription('Why should this be reviewed?').setRequired(true).setMaxLength(1500)),
+          .addIntegerOption((option) =>
+            option.setName('case').setDescription('Case number').setRequired(true).setMinValue(1),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('message')
+              .setDescription('Why should this be reviewed?')
+              .setRequired(true)
+              .setMaxLength(1500),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -749,22 +968,33 @@ export const commands: BotCommand[] = defineCommands([
             option
               .setName('status')
               .setDescription('Filter by status')
-              .addChoices({ name: 'pending', value: 'pending' }, { name: 'approved', value: 'approved' }, { name: 'denied', value: 'denied' }),
+              .addChoices(
+                { name: 'pending', value: 'pending' },
+                { name: 'approved', value: 'approved' },
+                { name: 'denied', value: 'denied' },
+              ),
           ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('review')
           .setDescription('Approve or deny an appeal (staff)')
-          .addIntegerOption((option) => option.setName('appeal').setDescription('Appeal id').setRequired(true).setMinValue(1))
+          .addIntegerOption((option) =>
+            option.setName('appeal').setDescription('Appeal id').setRequired(true).setMinValue(1),
+          )
           .addStringOption((option) =>
             option
               .setName('decision')
               .setDescription('Decision')
               .setRequired(true)
-              .addChoices({ name: 'approve', value: 'approved' }, { name: 'deny', value: 'denied' }),
+              .addChoices(
+                { name: 'approve', value: 'approved' },
+                { name: 'deny', value: 'denied' },
+              ),
           )
-          .addStringOption((option) => option.setName('note').setDescription('Note sent to the member').setMaxLength(500)),
+          .addStringOption((option) =>
+            option.setName('note').setDescription('Note sent to the member').setMaxLength(500),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -775,15 +1005,20 @@ export const commands: BotCommand[] = defineCommands([
         const caseNumber = interaction.options.getInteger('case', true);
         const record = await services.repos.moderation.getCase(guild.id, caseNumber);
         if (!record) throw new UserFacingError(`Case #${caseNumber} does not exist.`);
-        if (record.user_id !== interaction.user.id) throw new UserFacingError('You can only appeal your own cases.');
-        if (record.appeal_status && record.appeal_status !== 'none') throw new UserFacingError('That case already has an appeal on record.');
+        if (record.user_id !== interaction.user.id)
+          throw new UserFacingError('You can only appeal your own cases.');
+        if (record.appeal_status && record.appeal_status !== 'none')
+          throw new UserFacingError('That case already has an appeal on record.');
         const appealId = await services.repos.moderation.createAppeal({
           guildId: guild.id,
           caseId: record.id,
           userId: interaction.user.id,
           message: interaction.options.getString('message', true),
         });
-        const settings = await services.settings.get<{ appealInstructions?: string | null }>(guild.id, 'moderation');
+        const settings = await services.settings.get<{ appealInstructions?: string | null }>(
+          guild.id,
+          'moderation',
+        );
         await interaction.reply({
           embeds: [
             successEmbed(
@@ -796,7 +1031,8 @@ export const commands: BotCommand[] = defineCommands([
       }
 
       if (sub === 'list') {
-        if (!member.permissions.has(PermissionFlagsBits.ModerateMembers)) throw new UserFacingError('Only moderators can list appeals.');
+        if (!member.permissions.has(PermissionFlagsBits.ModerateMembers))
+          throw new UserFacingError('Only moderators can list appeals.');
         const status = interaction.options.getString('status') ?? 'pending';
         const appeals = await services.repos.moderation.listAppeals(guild.id, status, 50);
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -810,7 +1046,8 @@ export const commands: BotCommand[] = defineCommands([
         return;
       }
 
-      if (!member.permissions.has(PermissionFlagsBits.ModerateMembers)) throw new UserFacingError('Only moderators can review appeals.');
+      if (!member.permissions.has(PermissionFlagsBits.ModerateMembers))
+        throw new UserFacingError('Only moderators can review appeals.');
       const appealId = interaction.options.getInteger('appeal', true);
       const decision = interaction.options.getString('decision', true) as 'approved' | 'denied';
       const note = interaction.options.getString('note');
@@ -822,15 +1059,26 @@ export const commands: BotCommand[] = defineCommands([
         decision,
         note: note ?? undefined,
       });
-      if (!reviewed) throw new UserFacingError(`Appeal \`#${appealId}\` was not found or has already been reviewed.`);
+      if (!reviewed)
+        throw new UserFacingError(
+          `Appeal \`#${appealId}\` was not found or has already been reviewed.`,
+        );
       if (decision === 'approved' && reviewed.action === 'ban') {
         await guild.bans.remove(reviewed.userId, `Appeal #${appealId} approved`).catch(() => {});
       }
       const user = await interaction.client.users.fetch(reviewed.userId).catch(() => null);
       await user
-        ?.send(`Your appeal \`#${appealId}\` for **${guild.name}** was **${decision}**.${note ? `\n\nStaff note: ${note}` : ''}`)
+        ?.send(
+          `Your appeal \`#${appealId}\` for **${guild.name}** was **${decision}**.${note ? `\n\nStaff note: ${note}` : ''}`,
+        )
         .catch(() => {});
-      await interaction.editReply({ embeds: [successEmbed(`Appeal \`#${appealId}\` ${decision}. The member was notified by DM where possible.`)] });
+      await interaction.editReply({
+        embeds: [
+          successEmbed(
+            `Appeal \`#${appealId}\` ${decision}. The member was notified by DM where possible.`,
+          ),
+        ],
+      });
     },
   },
   {
@@ -839,21 +1087,39 @@ export const commands: BotCommand[] = defineCommands([
       .setName('modlog')
       .setDescription('Configure the moderation log channel and policy')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the moderation log configuration'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the moderation log configuration'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('set')
           .setDescription('Set the log channel')
-          .addChannelOption((option) => option.setName('channel').setDescription('Log channel').setRequired(true)),
+          .addChannelOption((option) =>
+            option.setName('channel').setDescription('Log channel').setRequired(true),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('disable').setDescription('Stop logging moderation actions'))
+      .addSubcommand((sub) =>
+        sub.setName('disable').setDescription('Stop logging moderation actions'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('options')
           .setDescription('Change moderation behaviour')
-          .addBooleanOption((option) => option.setName('require_reason').setDescription('Require a reason for ban/kick/timeout'))
-          .addBooleanOption((option) => option.setName('dm_on_action').setDescription('DM members when they are actioned'))
-          .addIntegerOption((option) => option.setName('retention_days').setDescription('Delete cases older than N days (0 = forever)').setMinValue(0).setMaxValue(3650)),
+          .addBooleanOption((option) =>
+            option
+              .setName('require_reason')
+              .setDescription('Require a reason for ban/kick/timeout'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('dm_on_action').setDescription('DM members when they are actioned'),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('retention_days')
+              .setDescription('Delete cases older than N days (0 = forever)')
+              .setMinValue(0)
+              .setMaxValue(3650),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -872,11 +1138,29 @@ export const commands: BotCommand[] = defineCommands([
             baseEmbed(settings.logChannelId ? COLORS.success : COLORS.warning)
               .setTitle('🛡️ Moderation log')
               .addFields(
-                { name: 'Channel', value: settings.logChannelId ? `<#${settings.logChannelId}>` : 'disabled', inline: true },
-                { name: 'Require reason', value: settings.requireReason ? 'yes' : 'no', inline: true },
+                {
+                  name: 'Channel',
+                  value: settings.logChannelId ? `<#${settings.logChannelId}>` : 'disabled',
+                  inline: true,
+                },
+                {
+                  name: 'Require reason',
+                  value: settings.requireReason ? 'yes' : 'no',
+                  inline: true,
+                },
                 { name: 'DM on action', value: settings.dmOnAction ? 'yes' : 'no', inline: true },
-                { name: 'Retention', value: settings.caseRetentionDays > 0 ? `${settings.caseRetentionDays} day(s)` : 'unlimited', inline: true },
-                { name: 'Escalation', value: `timeout ${settings.warnThresholds.timeoutAt} • kick ${settings.warnThresholds.kickAt} • ban ${settings.warnThresholds.banAt}` },
+                {
+                  name: 'Retention',
+                  value:
+                    settings.caseRetentionDays > 0
+                      ? `${settings.caseRetentionDays} day(s)`
+                      : 'unlimited',
+                  inline: true,
+                },
+                {
+                  name: 'Escalation',
+                  value: `timeout ${settings.warnThresholds.timeoutAt} • kick ${settings.warnThresholds.kickAt} • ban ${settings.warnThresholds.banAt}`,
+                },
               ),
           ],
           flags: MessageFlags.Ephemeral,
@@ -885,13 +1169,28 @@ export const commands: BotCommand[] = defineCommands([
       }
       if (sub === 'set') {
         const channel = interaction.options.getChannel('channel', true);
-        const result = await services.moderation.setLogChannel(guild.id, channel.id, interaction.user.id);
-        await interaction.reply({ embeds: [successEmbed(`Moderation actions will be logged to <#${result.channelId}>.`)], flags: MessageFlags.Ephemeral });
+        const result = await services.moderation.setLogChannel(
+          guild.id,
+          channel.id,
+          interaction.user.id,
+        );
+        await interaction.reply({
+          embeds: [successEmbed(`Moderation actions will be logged to <#${result.channelId}>.`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       if (sub === 'disable') {
-        await services.settings.update(guild.id, 'moderation', { logChannelId: null }, { actorId: interaction.user.id, source: 'command' });
-        await interaction.reply({ embeds: [warningEmbed('Moderation logging disabled.')], flags: MessageFlags.Ephemeral });
+        await services.settings.update(
+          guild.id,
+          'moderation',
+          { logChannelId: null },
+          { actorId: interaction.user.id, source: 'command' },
+        );
+        await interaction.reply({
+          embeds: [warningEmbed('Moderation logging disabled.')],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       const patch: Record<string, unknown> = {};
@@ -901,8 +1200,14 @@ export const commands: BotCommand[] = defineCommands([
       if (requireReason !== null) patch.requireReason = requireReason;
       if (dm !== null) patch.dmOnAction = dm;
       if (retention !== null) patch.caseRetentionDays = retention;
-      await services.settings.update(guild.id, 'moderation', patch, { actorId: interaction.user.id, source: 'command' });
-      await interaction.reply({ embeds: [successEmbed('Moderation options updated.')], flags: MessageFlags.Ephemeral });
+      await services.settings.update(guild.id, 'moderation', patch, {
+        actorId: interaction.user.id,
+        source: 'command',
+      });
+      await interaction.reply({
+        embeds: [successEmbed('Moderation options updated.')],
+        flags: MessageFlags.Ephemeral,
+      });
     },
   },
   {
@@ -911,15 +1216,37 @@ export const commands: BotCommand[] = defineCommands([
       .setName('escalation')
       .setDescription('Configure automatic escalation for repeated warnings')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the current escalation policy'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the current escalation policy'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('thresholds')
           .setDescription('Set warning counts that trigger timeout/kick/ban (0 disables a step)')
-          .addIntegerOption((option) => option.setName('timeout_at').setDescription('Timeout at N warnings').setMinValue(0).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('kick_at').setDescription('Kick at N warnings').setMinValue(0).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('ban_at').setDescription('Ban at N warnings').setMinValue(0).setMaxValue(100))
-          .addStringOption((option) => option.setName('timeout_duration').setDescription('Timeout length, e.g. 10m')),
+          .addIntegerOption((option) =>
+            option
+              .setName('timeout_at')
+              .setDescription('Timeout at N warnings')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('kick_at')
+              .setDescription('Kick at N warnings')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('ban_at')
+              .setDescription('Ban at N warnings')
+              .setMinValue(0)
+              .setMaxValue(100),
+          )
+          .addStringOption((option) =>
+            option.setName('timeout_duration').setDescription('Timeout length, e.g. 10m'),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -955,17 +1282,30 @@ export const commands: BotCommand[] = defineCommands([
         ...(timeoutAt !== null ? { timeoutAt } : {}),
         ...(kickAt !== null ? { kickAt } : {}),
         ...(banAt !== null ? { banAt } : {}),
-        ...(duration ? { timeoutMs: parseDurationMs(duration) ?? settings.warnThresholds.timeoutMs } : {}),
+        ...(duration
+          ? { timeoutMs: parseDurationMs(duration) ?? settings.warnThresholds.timeoutMs }
+          : {}),
       };
       if (next.timeoutAt > 0 && next.kickAt > 0 && next.kickAt <= next.timeoutAt) {
-        throw new UserFacingError('`kick_at` must be greater than `timeout_at` (or 0 to disable one step).');
+        throw new UserFacingError(
+          '`kick_at` must be greater than `timeout_at` (or 0 to disable one step).',
+        );
       }
       if (next.kickAt > 0 && next.banAt > 0 && next.banAt <= next.kickAt) {
         throw new UserFacingError('`ban_at` must be greater than `kick_at`.');
       }
-      await services.settings.update(guild.id, 'moderation', { warnThresholds: next }, { actorId: interaction.user.id, source: 'command' });
+      await services.settings.update(
+        guild.id,
+        'moderation',
+        { warnThresholds: next },
+        { actorId: interaction.user.id, source: 'command' },
+      );
       await interaction.reply({
-        embeds: [successEmbed(`Escalation: timeout at ${next.timeoutAt}, kick at ${next.kickAt}, ban at ${next.banAt} warnings.`)],
+        embeds: [
+          successEmbed(
+            `Escalation: timeout at ${next.timeoutAt}, kick at ${next.kickAt}, ban at ${next.banAt} warnings.`,
+          ),
+        ],
         flags: MessageFlags.Ephemeral,
       });
     },
@@ -976,16 +1316,32 @@ export const commands: BotCommand[] = defineCommands([
       .setName('bulkban')
       .setDescription('Ban several users at once (max 25)')
       .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
-      .addStringOption((option) => option.setName('users').setDescription('Space or comma separated ids/mentions').setRequired(true))
-      .addStringOption((option) => option.setName('reason').setDescription('Reason applied to every ban'))
-      .addIntegerOption((option) => option.setName('delete_days').setDescription('Delete messages from the last N days (0-7)').setMinValue(0).setMaxValue(7)),
+      .addStringOption((option) =>
+        option
+          .setName('users')
+          .setDescription('Space or comma separated ids/mentions')
+          .setRequired(true),
+      )
+      .addStringOption((option) =>
+        option.setName('reason').setDescription('Reason applied to every ban'),
+      )
+      .addIntegerOption((option) =>
+        option
+          .setName('delete_days')
+          .setDescription('Delete messages from the last N days (0-7)')
+          .setMinValue(0)
+          .setMaxValue(7),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const member = actorFrom(interaction);
-      const ids = [...new Set(interaction.options.getString('users', true).match(/\d{17,20}/g) ?? [])];
+      const ids = [
+        ...new Set(interaction.options.getString('users', true).match(/\d{17,20}/g) ?? []),
+      ];
       if (ids.length === 0) throw new UserFacingError('No valid user ids found in that input.');
       if (ids.length > 25) throw new UserFacingError('At most 25 users per /bulkban call.');
-      if (ids.includes(guild.ownerId)) throw new UserFacingError('The server owner cannot be bulk banned.');
+      if (ids.includes(guild.ownerId))
+        throw new UserFacingError('The server owner cannot be bulk banned.');
       if (ids.includes(interaction.user.id)) throw new UserFacingError('You cannot ban yourself.');
       const reason = interaction.options.getString('reason') ?? 'Bulk ban';
       const deleteDays = interaction.options.getInteger('delete_days') ?? 0;
@@ -1008,20 +1364,34 @@ export const commands: BotCommand[] = defineCommands([
           continue;
         }
         const ok = await guild.bans
-          .create(id, { reason: `${reason} — by ${member.user.tag}`, deleteMessageSeconds: deleteDays * 86_400 })
+          .create(id, {
+            reason: `${reason} — by ${member.user.tag}`,
+            deleteMessageSeconds: deleteDays * 86_400,
+          })
           .then(() => true)
           .catch(() => false);
         if (ok) {
           succeeded.push(id);
           await services.repos.moderation
-            .createCase({ guildId: guild.id, userId: id, moderatorId: interaction.user.id, action: 'ban', reason, source: 'command' })
+            .createCase({
+              guildId: guild.id,
+              userId: id,
+              moderatorId: interaction.user.id,
+              action: 'ban',
+              reason,
+              source: 'command',
+            })
             .catch(() => {});
         } else {
           failed.push(`${id} (Discord rejected the ban)`);
         }
       }
       await interaction.editReply({
-        embeds: [successEmbed(`Banned ${succeeded.length} user(s).${failed.length > 0 ? `\nFailed: ${truncate(failed.join(', '), 800)}` : ''}`)],
+        embeds: [
+          successEmbed(
+            `Banned ${succeeded.length} user(s).${failed.length > 0 ? `\nFailed: ${truncate(failed.join(', '), 800)}` : ''}`,
+          ),
+        ],
         components: [],
       });
     },

@@ -21,15 +21,13 @@ export class ConfigError extends Error {
   }
 }
 
-const booleanish = z
-  .union([z.boolean(), z.string()])
-  .transform((value) => {
-    if (typeof value === 'boolean') return value;
-    const normalized = value.trim().toLowerCase();
-    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
-    if (['0', 'false', 'no', 'off', ''].includes(normalized)) return false;
-    throw new Error(`cannot parse boolean from "${value}"`);
-  });
+const booleanish = z.union([z.boolean(), z.string()]).transform((value) => {
+  if (typeof value === 'boolean') return value;
+  const normalized = value.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off', ''].includes(normalized)) return false;
+  throw new Error(`cannot parse boolean from "${value}"`);
+});
 
 const snowflake = z
   .string()
@@ -194,7 +192,10 @@ export function loadConfig(env: RawEnv = process.env): AppConfig {
   } else if (data.LAVALINK_HOST && data.LAVALINK_PASSWORD) {
     // Configured but disabled: allowed, we simply do not connect.
   }
-  if ((data.SPOTIFY_CLIENT_ID && !data.SPOTIFY_CLIENT_SECRET) || (!data.SPOTIFY_CLIENT_ID && data.SPOTIFY_CLIENT_SECRET)) {
+  if (
+    (data.SPOTIFY_CLIENT_ID && !data.SPOTIFY_CLIENT_SECRET) ||
+    (!data.SPOTIFY_CLIENT_ID && data.SPOTIFY_CLIENT_SECRET)
+  ) {
     issues.push('SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET: must be provided together');
   }
 

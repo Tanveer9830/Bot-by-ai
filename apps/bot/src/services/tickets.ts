@@ -5,7 +5,6 @@ import {
   ButtonStyle,
   ChannelType,
   PermissionFlagsBits,
-  StringSelectMenuBuilder,
   type Guild,
   type GuildMember,
   type TextChannel,
@@ -45,9 +44,7 @@ export class TicketService {
     if (!channel || !channel.isTextBased() || channel.isDMBased()) {
       throw new UserFacingError('I cannot post the ticket panel in that channel.');
     }
-    const embed = baseEmbed(COLORS.primary)
-      .setTitle(panel.title)
-      .setDescription(panel.description);
+    const embed = baseEmbed(COLORS.primary).setTitle(panel.title).setDescription(panel.description);
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       panel.categories.slice(0, 5).map((category) =>
         new ButtonBuilder()
@@ -70,7 +67,8 @@ export class TicketService {
     reason?: string | null;
   }): Promise<{ ticket: TicketRow; channel: TextChannel }> {
     const settings = await this.getSettings(input.guild.id);
-    if (!settings.enabled) throw new UserFacingError('The ticket system is disabled in this server.');
+    if (!settings.enabled)
+      throw new UserFacingError('The ticket system is disabled in this server.');
     const openCount = await this.repos.tickets.openCountForUser(input.guild.id, input.user.id);
     if (openCount >= settings.maxOpenPerUser) {
       throw new UserFacingError(
@@ -136,7 +134,10 @@ export class TicketService {
     const header = baseEmbed(COLORS.primary)
       .setTitle(`Ticket #${ticket.ticket_number} • ${category.label}`)
       .setDescription(
-        (settings.welcomeMessage ?? 'Thanks for opening a ticket.').replace('{user}', `<@${input.user.id}>`),
+        (settings.welcomeMessage ?? 'Thanks for opening a ticket.').replace(
+          '{user}',
+          `<@${input.user.id}>`,
+        ),
       )
       .addFields(
         { name: 'Opened by', value: `<@${input.user.id}>`, inline: true },
@@ -163,7 +164,8 @@ export class TicketService {
     );
 
     await channel.send({
-      content: `<@${input.user.id}> ${settings.supportRoleIds.map((id) => `<@&${id}>`).join(' ')}`.trim(),
+      content:
+        `<@${input.user.id}> ${settings.supportRoleIds.map((id) => `<@&${id}>`).join(' ')}`.trim(),
       embeds: [header],
       components: [controls],
     });
@@ -179,11 +181,15 @@ export class TicketService {
 
   async claim(guild: Guild, ticketNumber: number, staff: GuildMember): Promise<TicketRow> {
     const settings = await this.getSettings(guild.id);
-    if (!settings.supportRoleIds.some((roleId) => staff.roles.cache.has(roleId)) && !staff.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    if (
+      !settings.supportRoleIds.some((roleId) => staff.roles.cache.has(roleId)) &&
+      !staff.permissions.has(PermissionFlagsBits.ManageChannels)
+    ) {
       throw new UserFacingError('Only members of the support team can claim tickets.');
     }
     const claimed = await this.repos.tickets.claim(guild.id, ticketNumber, staff.id);
-    if (!claimed) throw new UserFacingError('That ticket is not open (it may already be claimed or closed).');
+    if (!claimed)
+      throw new UserFacingError('That ticket is not open (it may already be claimed or closed).');
     const ticket = await this.repos.tickets.getByNumber(guild.id, ticketNumber);
     await this.logging.log(guild, {
       category: 'tickets',
@@ -208,16 +214,28 @@ export class TicketService {
     const settings = await this.getSettings(input.guild.id);
     const transcript = settings.transcriptsEnabled
       ? await this.buildTranscript(ticket, input.closedBy)
-      : { text: '', lines: [] as { author_id: string; author_tag: string | null; content: string | null; created_at: Date }[] };
+      : {
+          text: '',
+          lines: [] as {
+            author_id: string;
+            author_tag: string | null;
+            content: string | null;
+            created_at: Date;
+          }[],
+        };
     const closed = await this.repos.tickets.close({
       guildId: input.guild.id,
       ticketNumber: input.ticketNumber,
       closedBy: input.closedBy.id,
       reason: input.reason ?? null,
-      transcript: settings.transcriptsEnabled ? { generatedAt: new Date().toISOString(), messageCount: transcript.lines.length } : undefined,
+      transcript: settings.transcriptsEnabled
+        ? { generatedAt: new Date().toISOString(), messageCount: transcript.lines.length }
+        : undefined,
     });
     if (settings.transcriptsChannelId && transcript.text) {
-      const logChannel = await input.guild.channels.fetch(settings.transcriptsChannelId).catch(() => null);
+      const logChannel = await input.guild.channels
+        .fetch(settings.transcriptsChannelId)
+        .catch(() => null);
       if (logChannel?.isTextBased()) {
         const file = new AttachmentBuilder(Buffer.from(transcript.text, 'utf8'), {
           name: `ticket-${input.ticketNumber}.txt`,
@@ -241,7 +259,9 @@ export class TicketService {
       await owner
         ?.send(
           `Your ticket #${input.ticketNumber} in **${input.guild.name}** was closed by ${input.closedBy.user.tag}.` +
-            (settings.ratingEnabled ? '\nYou can rate the support you received with `/ticket rate`.' : ''),
+            (settings.ratingEnabled
+              ? '\nYou can rate the support you received with `/ticket rate`.'
+              : ''),
         )
         .catch(() => {});
     }
@@ -273,11 +293,17 @@ export class TicketService {
     });
   }
 
-  async addUser(guild: Guild, ticketNumber: number, userId: string, actor: GuildMember): Promise<void> {
+  async addUser(
+    guild: Guild,
+    ticketNumber: number,
+    userId: string,
+    actor: GuildMember,
+  ): Promise<void> {
     const ticket = await this.repos.tickets.getByNumber(guild.id, ticketNumber);
     if (!ticket) throw new UserFacingError('Ticket not found.');
     const channel = await guild.channels.fetch(ticket.channel_id).catch(() => null);
-    if (!channel || !('permissionOverwrites' in channel)) throw new UserFacingError('Ticket channel not found.');
+    if (!channel || !('permissionOverwrites' in channel))
+      throw new UserFacingError('Ticket channel not found.');
     await channel.permissionOverwrites.edit(
       userId,
       {
@@ -290,21 +316,39 @@ export class TicketService {
     );
   }
 
-  async removeUser(guild: Guild, ticketNumber: number, userId: string, actor: GuildMember): Promise<void> {
+  async removeUser(
+    guild: Guild,
+    ticketNumber: number,
+    userId: string,
+    actor: GuildMember,
+  ): Promise<void> {
     const ticket = await this.repos.tickets.getByNumber(guild.id, ticketNumber);
     if (!ticket) throw new UserFacingError('Ticket not found.');
     if (userId === ticket.user_id) {
       throw new UserFacingError('You cannot remove the ticket owner — close the ticket instead.');
     }
     const channel = await guild.channels.fetch(ticket.channel_id).catch(() => null);
-    if (!channel || !('permissionOverwrites' in channel)) throw new UserFacingError('Ticket channel not found.');
-    await channel.permissionOverwrites.edit(userId, { ViewChannel: false }, { reason: `${actor.user.tag} removed a participant` });
+    if (!channel || !('permissionOverwrites' in channel))
+      throw new UserFacingError('Ticket channel not found.');
+    await channel.permissionOverwrites.edit(
+      userId,
+      { ViewChannel: false },
+      { reason: `${actor.user.tag} removed a participant` },
+    );
   }
 
   async buildTranscript(
     ticket: TicketRow,
     requester: GuildMember,
-  ): Promise<{ text: string; lines: { author_id: string; author_tag: string | null; content: string | null; created_at: Date }[] }> {
+  ): Promise<{
+    text: string;
+    lines: {
+      author_id: string;
+      author_tag: string | null;
+      content: string | null;
+      created_at: Date;
+    }[];
+  }> {
     const lines = await this.repos.tickets.getTranscript(ticket.id);
     const header = [
       `Transcript for ticket #${ticket.ticket_number} (${ticket.guild_id})`,

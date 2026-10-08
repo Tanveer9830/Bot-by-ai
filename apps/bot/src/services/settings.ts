@@ -58,7 +58,11 @@ export class GuildSettingsService {
       const values = await this.load(guildId);
       const stored = values[module];
       if (stored) {
-        return (fallback ? { ...(moduleDefaults(module) as object), ...(fallback as object), ...stored } : stored) as T;
+        return (
+          fallback
+            ? { ...(moduleDefaults(module) as object), ...(fallback as object), ...stored }
+            : stored
+        ) as T;
       }
     } catch (error) {
       this.logger.error('failed to read guild settings, using defaults', {
@@ -67,7 +71,10 @@ export class GuildSettingsService {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    return { ...(moduleDefaults(module) as object), ...((fallback ?? {}) as object) } as unknown as T;
+    return {
+      ...(moduleDefaults(module) as object),
+      ...((fallback ?? {}) as object),
+    } as unknown as T;
   }
 
   /**
@@ -80,7 +87,12 @@ export class GuildSettingsService {
     patch: Record<string, unknown>,
     context: SettingsChangeContext,
   ): Promise<T> {
-    const updated = (await this.repos.guilds.patchModuleSettings(guildId, module, patch, context)) as T;
+    const updated = (await this.repos.guilds.patchModuleSettings(
+      guildId,
+      module,
+      patch,
+      context,
+    )) as T;
     this.invalidate(guildId);
     return updated;
   }
@@ -96,7 +108,10 @@ export class GuildSettingsService {
     this.invalidate(input.id);
   }
 
-  async history(guildId: string, limit = 50): Promise<Awaited<ReturnType<Repositories['guilds']['getSettingsHistory']>>> {
+  async history(
+    guildId: string,
+    limit = 50,
+  ): Promise<Awaited<ReturnType<Repositories['guilds']['getSettingsHistory']>>> {
     return this.repos.guilds.getSettingsHistory(guildId, limit);
   }
 

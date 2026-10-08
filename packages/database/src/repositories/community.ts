@@ -85,7 +85,9 @@ export class CommunityRepository {
     return (rowCount ?? 0) > 0;
   }
 
-  async listEntries(giveawayId: number): Promise<{ user_id: string; entries: number; weight: number }[]> {
+  async listEntries(
+    giveawayId: number,
+  ): Promise<{ user_id: string; entries: number; weight: number }[]> {
     const { rows } = await this.db.query<{ user_id: string; entries: number; weight: number }>(
       'SELECT user_id, entries, weight FROM giveaway_entries WHERE giveaway_id = $1',
       [giveawayId],
@@ -94,14 +96,17 @@ export class CommunityRepository {
   }
 
   async getGiveaway(id: number): Promise<GiveawayRow | null> {
-    const { rows } = await this.db.query<GiveawayRow>('SELECT * FROM giveaways WHERE id = $1', [id]);
+    const { rows } = await this.db.query<GiveawayRow>('SELECT * FROM giveaways WHERE id = $1', [
+      id,
+    ]);
     return rows[0] ?? null;
   }
 
   async findGiveawayByMessage(messageId: string): Promise<GiveawayRow | null> {
-    const { rows } = await this.db.query<GiveawayRow>('SELECT * FROM giveaways WHERE message_id = $1', [
-      messageId,
-    ]);
+    const { rows } = await this.db.query<GiveawayRow>(
+      'SELECT * FROM giveaways WHERE message_id = $1',
+      [messageId],
+    );
     return rows[0] ?? null;
   }
 
@@ -166,12 +171,15 @@ export class CommunityRepository {
     return Number(rows[0]?.id);
   }
 
-  async setSuggestionMessage(id: number, messageId: string, threadId?: string | null): Promise<void> {
-    await this.db.query('UPDATE suggestions SET message_id = $2, thread_id = COALESCE($3, thread_id) WHERE id = $1', [
-      id,
-      messageId,
-      threadId ?? null,
-    ]);
+  async setSuggestionMessage(
+    id: number,
+    messageId: string,
+    threadId?: string | null,
+  ): Promise<void> {
+    await this.db.query(
+      'UPDATE suggestions SET message_id = $2, thread_id = COALESCE($3, thread_id) WHERE id = $1',
+      [id, messageId, threadId ?? null],
+    );
   }
 
   /** Records/replaces a vote and returns the fresh tallies. */
@@ -194,16 +202,18 @@ export class CommunityRepository {
       );
       const upvotes = Number(rows[0]?.upvotes ?? 0);
       const downvotes = Number(rows[0]?.downvotes ?? 0);
-      await client.query('UPDATE suggestions SET upvotes = $2, downvotes = $3, updated_at = now() WHERE id = $1', [
-        input.suggestionId,
-        upvotes,
-        downvotes,
-      ]);
+      await client.query(
+        'UPDATE suggestions SET upvotes = $2, downvotes = $3, updated_at = now() WHERE id = $1',
+        [input.suggestionId, upvotes, downvotes],
+      );
       return { upvotes, downvotes };
     });
   }
 
-  async deleteSuggestionVote(suggestionId: number, userId: string): Promise<{ upvotes: number; downvotes: number }> {
+  async deleteSuggestionVote(
+    suggestionId: number,
+    userId: string,
+  ): Promise<{ upvotes: number; downvotes: number }> {
     return this.db.transaction(async (client) => {
       await client.query('DELETE FROM suggestion_votes WHERE suggestion_id = $1 AND user_id = $2', [
         suggestionId,
@@ -217,16 +227,17 @@ export class CommunityRepository {
       );
       const upvotes = Number(rows[0]?.upvotes ?? 0);
       const downvotes = Number(rows[0]?.downvotes ?? 0);
-      await client.query('UPDATE suggestions SET upvotes = $2, downvotes = $3, updated_at = now() WHERE id = $1', [
-        suggestionId,
-        upvotes,
-        downvotes,
-      ]);
+      await client.query(
+        'UPDATE suggestions SET upvotes = $2, downvotes = $3, updated_at = now() WHERE id = $1',
+        [suggestionId, upvotes, downvotes],
+      );
       return { upvotes, downvotes };
     });
   }
 
-  async getSuggestionByMessage(messageId: string): Promise<{ id: number; guild_id: string; status: string } | null> {
+  async getSuggestionByMessage(
+    messageId: string,
+  ): Promise<{ id: number; guild_id: string; status: string } | null> {
     const { rows } = await this.db.query<{ id: number; guild_id: string; status: string }>(
       'SELECT id, guild_id, status FROM suggestions WHERE message_id = $1',
       [messageId],
@@ -267,7 +278,9 @@ export class CommunityRepository {
       `SELECT id, user_id, content, status, upvotes, downvotes, created_at, staff_response FROM suggestions
         WHERE guild_id = $1 ${options.status ? 'AND status = $3' : ''}
         ORDER BY created_at DESC LIMIT $2`,
-      options.status ? [guildId, Math.min(options.limit ?? 20, 100), options.status] : [guildId, Math.min(options.limit ?? 20, 100)],
+      options.status
+        ? [guildId, Math.min(options.limit ?? 20, 100), options.status]
+        : [guildId, Math.min(options.limit ?? 20, 100)],
     );
     return rows as never;
   }
@@ -315,7 +328,9 @@ export class CommunityRepository {
       guild_id: string;
       exclusive: boolean;
       options: unknown;
-    }>('SELECT id, guild_id, exclusive, options FROM reaction_role_panels WHERE message_id = $1', [messageId]);
+    }>('SELECT id, guild_id, exclusive, options FROM reaction_role_panels WHERE message_id = $1', [
+      messageId,
+    ]);
     return rows[0] ?? null;
   }
 
@@ -379,7 +394,10 @@ export class CommunityRepository {
     guildId: string,
     sourceMessageId: string,
   ): Promise<{ starboard_message_id: string | null; star_count: number } | null> {
-    const { rows } = await this.db.query<{ starboard_message_id: string | null; star_count: number }>(
+    const { rows } = await this.db.query<{
+      starboard_message_id: string | null;
+      star_count: number;
+    }>(
       'SELECT starboard_message_id, star_count FROM starboard_entries WHERE guild_id = $1 AND source_message_id = $2',
       [guildId, sourceMessageId],
     );
@@ -387,10 +405,10 @@ export class CommunityRepository {
   }
 
   async deleteStarboardEntry(guildId: string, sourceMessageId: string): Promise<void> {
-    await this.db.query('DELETE FROM starboard_entries WHERE guild_id = $1 AND source_message_id = $2', [
-      guildId,
-      sourceMessageId,
-    ]);
+    await this.db.query(
+      'DELETE FROM starboard_entries WHERE guild_id = $1 AND source_message_id = $2',
+      [guildId, sourceMessageId],
+    );
   }
 
   // --------------------------------------------------------------- birthdays
@@ -404,7 +422,10 @@ export class CommunityRepository {
   }): Promise<void> {
     const maxDay = new Date(Date.UTC(2024, input.month, 0)).getUTCDate();
     if (input.day < 1 || input.day > maxDay) {
-      throw new BusinessError('INVALID_DATE', `Day ${input.day} is not valid for month ${input.month}.`);
+      throw new BusinessError(
+        'INVALID_DATE',
+        `Day ${input.day} is not valid for month ${input.month}.`,
+      );
     }
     await this.db.query(
       `INSERT INTO birthdays (guild_id, user_id, month, day, year) VALUES ($1,$2,$3,$4,$5)
@@ -414,10 +435,10 @@ export class CommunityRepository {
   }
 
   async removeBirthday(guildId: string, userId: string): Promise<boolean> {
-    const { rowCount } = await this.db.query('DELETE FROM birthdays WHERE guild_id = $1 AND user_id = $2', [
-      guildId,
-      userId,
-    ]);
+    const { rowCount } = await this.db.query(
+      'DELETE FROM birthdays WHERE guild_id = $1 AND user_id = $2',
+      [guildId, userId],
+    );
     return (rowCount ?? 0) > 0;
   }
 
@@ -425,7 +446,11 @@ export class CommunityRepository {
     month: number,
     day: number,
   ): Promise<{ guild_id: string; user_id: string; year: number | null }[]> {
-    const { rows } = await this.db.query<{ guild_id: string; user_id: string; year: number | null }>(
+    const { rows } = await this.db.query<{
+      guild_id: string;
+      user_id: string;
+      year: number | null;
+    }>(
       `SELECT guild_id, user_id, year FROM birthdays
         WHERE month = $1 AND day = $2
           AND (last_announced_year IS NULL OR last_announced_year <> $3)`,
@@ -451,7 +476,12 @@ export class CommunityRepository {
     guildId: string,
     limit = 10,
   ): Promise<{ user_id: string; month: number; day: number; days_until: number }[]> {
-    const { rows } = await this.db.query<{ user_id: string; month: number; day: number; days_until: number }>(
+    const { rows } = await this.db.query<{
+      user_id: string;
+      month: number;
+      day: number;
+      days_until: number;
+    }>(
       `SELECT user_id, month, day, days_until FROM (
          SELECT user_id, month, day,
                 ((make_date(
@@ -486,7 +516,9 @@ export class CommunityRepository {
     return Number(rows[0]?.id);
   }
 
-  async dueReminders(limit = 25): Promise<
+  async dueReminders(
+    limit = 25,
+  ): Promise<
     { id: number; guild_id: string | null; user_id: string; channel_id: string; content: string }[]
   > {
     const { rows } = await this.db.query(
@@ -498,7 +530,10 @@ export class CommunityRepository {
   }
 
   async markReminderDelivered(id: number): Promise<void> {
-    await this.db.query(`UPDATE reminders SET status = 'delivered', delivered_at = now() WHERE id = $1`, [id]);
+    await this.db.query(
+      `UPDATE reminders SET status = 'delivered', delivered_at = now() WHERE id = $1`,
+      [id],
+    );
   }
 
   async listUserReminders(

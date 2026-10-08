@@ -209,7 +209,9 @@ export class LavalinkNode {
       if (response.status === 204) return {};
       const text = await response.text();
       if (!response.ok) {
-        throw new Error(`Lavalink ${method} ${path} failed with ${response.status}: ${text.slice(0, 200)}`);
+        throw new Error(
+          `Lavalink ${method} ${path} failed with ${response.status}: ${text.slice(0, 200)}`,
+        );
       }
       return text ? (JSON.parse(text) as Record<string, unknown>) : {};
     } finally {
@@ -218,10 +220,14 @@ export class LavalinkNode {
   }
 
   async loadTracks(identifier: string): Promise<LoadTracksResult> {
-    const result = await this.request('GET', `/v4/loadtracks?identifier=${encodeURIComponent(identifier)}`);
+    const result = await this.request(
+      'GET',
+      `/v4/loadtracks?identifier=${encodeURIComponent(identifier)}`,
+    );
     const loadType = (result.loadType as LoadTracksResult['loadType']) ?? 'empty';
     if (loadType === 'playlist') {
-      const data = result.data as { tracks?: LavalinkTrack[]; info?: { name?: string } } | undefined;
+      const data = result.data as
+        { tracks?: LavalinkTrack[]; info?: { name?: string } } | undefined;
       return { loadType, tracks: data?.tracks ?? [], playlistName: data?.info?.name };
     }
     if (loadType === 'track') {
@@ -240,14 +246,19 @@ export class LavalinkNode {
     return { loadType: 'empty', tracks: [] };
   }
 
-  async updatePlayer(guildId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async updatePlayer(
+    guildId: string,
+    payload: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     if (!this.sessionId) throw new Error('Lavalink session is not ready');
     return this.request('PATCH', `/v4/sessions/${this.sessionId}/players/${guildId}`, payload);
   }
 
   async destroyPlayer(guildId: string): Promise<void> {
     if (!this.sessionId) return;
-    await this.request('DELETE', `/v4/sessions/${this.sessionId}/players/${guildId}`).catch(() => {});
+    await this.request('DELETE', `/v4/sessions/${this.sessionId}/players/${guildId}`).catch(
+      () => {},
+    );
   }
 
   async decodeTracks(encoded: string[]): Promise<LavalinkTrack[]> {

@@ -15,7 +15,8 @@ export const DEFAULT_XP_CURVE: XpCurve = { base: 100, exponent: 1.55, growth: 25
 
 export function xpForNextLevel(level: number, curve: XpCurve = DEFAULT_XP_CURVE): number {
   const safeLevel = Math.max(0, Math.min(Math.floor(level), MAX_LEVEL - 1));
-  const value = curve.base + curve.growth * safeLevel + Math.pow(safeLevel + 1, curve.exponent) * 10;
+  const value =
+    curve.base + curve.growth * safeLevel + Math.pow(safeLevel + 1, curve.exponent) * 10;
   return Math.max(1, Math.floor(value));
 }
 
@@ -81,12 +82,17 @@ export function computeMessageXp(input: MessageXpInput): number {
 }
 
 /** Simple spam heuristic: short, repetitive, low-information messages earn nothing. */
-export function isLowQualityMessage(content: string, previousMessages: readonly string[] = []): boolean {
+export function isLowQualityMessage(
+  content: string,
+  previousMessages: readonly string[] = [],
+): boolean {
   const text = content.trim();
   if (text.length < 3) return true;
   if (/^(.)\1{2,}$/.test(text)) return true;
   const normalized = text.toLowerCase();
-  const repeats = previousMessages.filter((prev) => prev.trim().toLowerCase() === normalized).length;
+  const repeats = previousMessages.filter(
+    (prev) => prev.trim().toLowerCase() === normalized,
+  ).length;
   return repeats >= 2;
 }
 

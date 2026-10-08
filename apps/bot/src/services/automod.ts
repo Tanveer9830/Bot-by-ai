@@ -72,7 +72,11 @@ export class AutomodService {
     this.recordRecent(message.author.id, { content: message.content, timestamp: Date.now() });
     if (violations.length === 0) return null;
 
-    const stored = await this.repos.security.countRecentAutomodViolations(message.guild.id, message.author.id, 86_400_000);
+    const stored = await this.repos.security.countRecentAutomodViolations(
+      message.guild.id,
+      message.author.id,
+      86_400_000,
+    );
     const escalationCount = stored + 1;
     const steps = settings.escalation.length > 0 ? settings.escalation : undefined;
     const step = resolveEscalation(escalationCount, steps);
@@ -111,7 +115,9 @@ export class AutomodService {
         me?.permissions.has(PermissionFlagsBits.KickMembers) &&
         message.member.roles.highest.position < me.roles.highest.position
       ) {
-        await message.member.kick(`AutoMod escalation: ${violations.length} violation(s)`).catch(() => {});
+        await message.member
+          .kick(`AutoMod escalation: ${violations.length} violation(s)`)
+          .catch(() => {});
       }
     }
 
@@ -122,7 +128,9 @@ export class AutomodService {
         message.member.roles.highest.position < me.roles.highest.position
       ) {
         await message.guild.bans
-          .create(message.author.id, { reason: `AutoMod escalation: ${violations.length} violation(s)` })
+          .create(message.author.id, {
+            reason: `AutoMod escalation: ${violations.length} violation(s)`,
+          })
           .catch(() => {});
       }
     }
@@ -141,7 +149,9 @@ export class AutomodService {
       .log(message.guild, {
         category: 'automod',
         title: `AutoMod: ${violations.map((violation) => violation.kind).join(', ')}`,
-        description: violations.map((violation) => `• ${violation.detail}`).join('\n') || 'No detail available.',
+        description:
+          violations.map((violation) => `• ${violation.detail}`).join('\n') ||
+          'No detail available.',
         color: severity >= 3 ? COLORS.danger : COLORS.warning,
         actorId: message.author.id,
         fields: [
@@ -158,7 +168,8 @@ export class AutomodService {
   private async tryDelete(message: Message<true>): Promise<boolean> {
     const me = message.guild.members.me;
     if (!me?.permissions.has(PermissionFlagsBits.ManageMessages)) return false;
-    const permissions = 'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
+    const permissions =
+      'permissionsFor' in message.channel ? message.channel.permissionsFor(me) : null;
     if (permissions && !permissions.has(PermissionFlagsBits.ManageMessages)) return false;
     return message
       .delete()
@@ -217,7 +228,11 @@ export class AutomodService {
   }
 
   async warnSummaryEmbed(guild: Guild, member: GuildMember): Promise<ReturnType<typeof baseEmbed>> {
-    const count = await this.repos.security.countRecentAutomodViolations(guild.id, member.id, 7 * 86_400_000);
+    const count = await this.repos.security.countRecentAutomodViolations(
+      guild.id,
+      member.id,
+      7 * 86_400_000,
+    );
     const settings = await this.getSettings(guild.id);
     return baseEmbed(COLORS.warning)
       .setTitle(`AutoMod summary for ${member.user.tag}`)

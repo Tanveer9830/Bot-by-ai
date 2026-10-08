@@ -45,7 +45,14 @@ export class LevelRepository {
          VALUES ($1,$2,$3,$4,$5,$6, now())
          ON CONFLICT (guild_id, user_id) DO NOTHING
          RETURNING *`,
-        [input.guildId, input.userId, amount, levelFromXp(amount), input.countMessage ? 1 : 0, input.voiceMinutes ?? 0],
+        [
+          input.guildId,
+          input.userId,
+          amount,
+          levelFromXp(amount),
+          input.countMessage ? 1 : 0,
+          input.voiceMinutes ?? 0,
+        ],
       );
       if (inserted[0]) {
         return {
@@ -136,7 +143,12 @@ export class LevelRepository {
   }
 
   /** XP gain is cooldown-gated, so an admin set always applies. */
-  async setXp(input: { guildId: string; userId: string; xp: number; maxLevel?: number }): Promise<MemberLevelRow> {
+  async setXp(input: {
+    guildId: string;
+    userId: string;
+    xp: number;
+    maxLevel?: number;
+  }): Promise<MemberLevelRow> {
     if (!Number.isInteger(input.xp) || input.xp < 0) {
       throw new BusinessError('INVALID_XP', 'XP must be a non-negative whole number.');
     }
@@ -151,7 +163,11 @@ export class LevelRepository {
     return rows[0] as MemberLevelRow;
   }
 
-  async addXpAdmin(input: { guildId: string; userId: string; delta: number }): Promise<MemberLevelRow> {
+  async addXpAdmin(input: {
+    guildId: string;
+    userId: string;
+    delta: number;
+  }): Promise<MemberLevelRow> {
     const profile = (await this.getProfile(input.guildId, input.userId)) ?? {
       xp: 0,
       level: 0,
@@ -181,7 +197,10 @@ export class LevelRepository {
     return rows;
   }
 
-  async getRank(guildId: string, userId: string): Promise<{ rank: number; xp: number; level: number } | null> {
+  async getRank(
+    guildId: string,
+    userId: string,
+  ): Promise<{ rank: number; xp: number; level: number } | null> {
     const { rows } = await this.db.query<{ rank: number; xp: number; level: number }>(
       `SELECT rank, xp, level FROM (
          SELECT user_id, xp, level, ROW_NUMBER() OVER (ORDER BY xp DESC)::int AS rank

@@ -95,11 +95,16 @@ export class SecurityService {
   }
 
   /** True when the actor should be ignored by anti-nuke/anti-raid (staff, trusted, owner). */
-  async isTrusted(guild: Guild, userId: string, memberRoleIds: string[] | undefined): Promise<boolean> {
+  async isTrusted(
+    guild: Guild,
+    userId: string,
+    memberRoleIds: string[] | undefined,
+  ): Promise<boolean> {
     if (userId === guild.ownerId) return true;
     const settings = await this.getSettings(guild.id);
     if (settings.trustedUserIds.includes(userId)) return true;
-    if (memberRoleIds && settings.trustedRoleIds.some((roleId) => memberRoleIds.includes(roleId))) return true;
+    if (memberRoleIds && settings.trustedRoleIds.some((roleId) => memberRoleIds.includes(roleId)))
+      return true;
     if (await this.repos.security.isTrusted(guild.id, 'user', userId)) return true;
     for (const roleId of memberRoleIds ?? []) {
       if (await this.repos.security.isTrusted(guild.id, 'role', roleId)) return true;
@@ -111,7 +116,9 @@ export class SecurityService {
    * Records an anti-nuke event and evaluates thresholds for that actor within
    * the configured window. Returns the verdict so callers can react.
    */
-  async recordNukeEvent(input: SecurityEventInput & { actorRoleIds?: string[] }): Promise<SecurityVerdict> {
+  async recordNukeEvent(
+    input: SecurityEventInput & { actorRoleIds?: string[] },
+  ): Promise<SecurityVerdict> {
     const settings = await this.getSettings(input.guild.id);
     if (!settings.enabled || !settings.antiNuke.enabled) {
       return { logged: false, breached: false, threshold: 0, observed: 0 };
@@ -122,7 +129,10 @@ export class SecurityService {
         return { logged: false, breached: false, threshold: 0, observed: 0 };
       }
       const member = await input.guild.members.fetch(actorId).catch(() => null);
-      if (member?.permissions.has(PermissionFlagsBits.Administrator) && settings.trustedUserIds.includes(actorId)) {
+      if (
+        member?.permissions.has(PermissionFlagsBits.Administrator) &&
+        settings.trustedUserIds.includes(actorId)
+      ) {
         return { logged: false, breached: false, threshold: 0, observed: 0 };
       }
     }
@@ -179,17 +189,28 @@ export class SecurityService {
   ): Promise<void> {
     const me = guild.members.me;
     if (settings.antiNuke.autoLockdown) {
-      await this.lockdown(guild, settings.antiNuke.lockdownMinutes, `Automatic lockdown after ${kind} threshold breach`, actorId ?? 'system').catch(
-        (error) => this.logger.error('automatic lockdown failed', { guildId: guild.id, error: String(error) }),
+      await this.lockdown(
+        guild,
+        settings.antiNuke.lockdownMinutes,
+        `Automatic lockdown after ${kind} threshold breach`,
+        actorId ?? 'system',
+      ).catch((error) =>
+        this.logger.error('automatic lockdown failed', { guildId: guild.id, error: String(error) }),
       );
       verdict.action = 'lockdown';
     }
     if (actorId && me) {
       if (settings.antiNuke.response === 'ban') {
         const target = await guild.members.fetch(actorId).catch(() => null);
-        if (target && target.id !== guild.ownerId && target.roles.highest.position < me.roles.highest.position) {
+        if (
+          target &&
+          target.id !== guild.ownerId &&
+          target.roles.highest.position < me.roles.highest.position
+        ) {
           await guild.bans
-            .create(actorId, { reason: `Anti-nuke: ${kind} threshold breached (${verdict.observed} events)` })
+            .create(actorId, {
+              reason: `Anti-nuke: ${kind} threshold breached (${verdict.observed} events)`,
+            })
             .catch(() => {});
           verdict.detail = 'actor banned';
         } else {
@@ -199,9 +220,14 @@ export class SecurityService {
         const target = await guild.members.fetch(actorId).catch(() => null);
         if (target && target.id !== guild.ownerId) {
           const removable = target.roles.cache.filter(
-            (role) => role.id !== guild.id && role.position < me.roles.highest.position && role.managed === false,
+            (role) =>
+              role.id !== guild.id &&
+              role.position < me.roles.highest.position &&
+              role.managed === false,
           );
-          await target.roles.remove(removable, 'Anti-nuke: dangerous roles removed').catch(() => {});
+          await target.roles
+            .remove(removable, 'Anti-nuke: dangerous roles removed')
+            .catch(() => {});
           verdict.detail = `removed ${removable.size} role(s)`;
         }
       }
@@ -257,7 +283,9 @@ export class SecurityService {
       const me = input.guild.members.me;
       if (me && input.member.roles.highest.position < me.roles.highest.position) {
         await input.member
-          .kick(`Account age ${ageDays.toFixed(1)}d is below the configured minimum of ${settings.antiRaid.minAccountAgeDays}d`)
+          .kick(
+            `Account age ${ageDays.toFixed(1)}d is below the configured minimum of ${settings.antiRaid.minAccountAgeDays}d`,
+          )
           .catch(() => {});
         verdict.detail = 'new account kicked by policy';
       }
@@ -265,10 +293,19 @@ export class SecurityService {
     return verdict;
   }
 
-  private async respondToRaid(guild: Guild, settings: SecuritySettings, newMember: GuildMember): Promise<void> {
+  private async respondToRaid(
+    guild: Guild,
+    settings: SecuritySettings,
+    newMember: GuildMember,
+  ): Promise<void> {
     switch (settings.antiRaid.response) {
       case 'lockdown':
-        await this.lockdown(guild, settings.antiRaid.lockdownMinutes, 'Automatic raid lockdown', 'system').catch(() => {});
+        await this.lockdown(
+          guild,
+          settings.antiRaid.lockdownMinutes,
+          'Automatic raid lockdown',
+          'system',
+        ).catch(() => {});
         break;
       case 'kick_new': {
         const me = guild.members.me;
@@ -280,7 +317,9 @@ export class SecurityService {
       case 'ban_new': {
         const me = guild.members.me;
         if (me && newMember.roles.highest.position < me.roles.highest.position) {
-          await guild.bans.create(newMember.id, { reason: 'Anti-raid response: ban_new' }).catch(() => {});
+          await guild.bans
+            .create(newMember.id, { reason: 'Anti-raid response: ban_new' })
+            .catch(() => {});
         }
         break;
       }
@@ -317,12 +356,8 @@ export class SecurityService {
     );
     const modified: string[] = [];
     for (const channel of channels.values()) {
-      const success = await channel
-        .permissionOverwrites.edit(
-          guild.roles.everyone,
-          { SendMessages: false },
-          { reason: `Lockdown: ${reason}` },
-        )
+      const success = await channel.permissionOverwrites
+        .edit(guild.roles.everyone, { SendMessages: false }, { reason: `Lockdown: ${reason}` })
         .then(() => true)
         .catch(() => false);
       if (success) modified.push(channel.id);
@@ -348,7 +383,11 @@ export class SecurityService {
       severity: 3,
       actorId,
       description: `Lockdown started: ${reason}`,
-      metadata: { channels: modified, until, allowedOverrides: settings.lockdown.allowedChannelIds },
+      metadata: {
+        channels: modified,
+        until,
+        allowedOverrides: settings.lockdown.allowedChannelIds,
+      },
     });
     await this.logging.logSecurity(guild, {
       title: 'Server lockdown activated',
@@ -373,17 +412,20 @@ export class SecurityService {
         channelIds = guild.channels.cache
           .filter(
             (channel) =>
-              channel.type === ChannelType.GuildText && !settings.lockdown.allowedChannelIds.includes(channel.id),
+              channel.type === ChannelType.GuildText &&
+              !settings.lockdown.allowedChannelIds.includes(channel.id),
           )
           .map((channel) => channel.id);
       }
     }
     let restored = 0;
     for (const channelId of channelIds) {
-      const channel = guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null));
+      const channel =
+        guild.channels.cache.get(channelId) ??
+        (await guild.channels.fetch(channelId).catch(() => null));
       if (channel && channel.type === ChannelType.GuildText) {
-        const success = await channel
-          .permissionOverwrites.edit(guild.roles.everyone, { SendMessages: null }, { reason: 'Lockdown lifted' })
+        const success = await channel.permissionOverwrites
+          .edit(guild.roles.everyone, { SendMessages: null }, { reason: 'Lockdown lifted' })
           .then(() => true)
           .catch(() => false);
         if (success) restored += 1;
@@ -415,16 +457,20 @@ export class SecurityService {
     let lifted = 0;
     for (const row of active) {
       if (row.until === null || row.until > Date.now()) continue;
-      const guild = client.guilds.cache.get(row.guild_id) ?? (await client.guilds.fetch(row.guild_id).catch(() => null));
+      const guild =
+        client.guilds.cache.get(row.guild_id) ??
+        (await client.guilds.fetch(row.guild_id).catch(() => null));
       if (!guild) continue;
-      await this.liftLockdown(guild, null).then(() => {
-        lifted += 1;
-      }).catch((error) => {
-        this.logger.warn('failed to lift expired lockdown', {
-          guildId: row.guild_id,
-          error: error instanceof Error ? error.message : String(error),
+      await this.liftLockdown(guild, null)
+        .then(() => {
+          lifted += 1;
+        })
+        .catch((error) => {
+          this.logger.warn('failed to lift expired lockdown', {
+            guildId: row.guild_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
-      });
     }
     return lifted;
   }
@@ -443,7 +489,8 @@ export class SecurityService {
     if (input.messageCount < settings.antiSpam.messagesPerWindow) return { timedOut: false };
     const me = input.guild.members.me;
     if (!me || !me.permissions.has(PermissionFlagsBits.ModerateMembers)) return { timedOut: false };
-    if (input.member.roles.highest.position >= me.roles.highest.position) return { timedOut: false };
+    if (input.member.roles.highest.position >= me.roles.highest.position)
+      return { timedOut: false };
 
     await this.repos.security.logEvent({
       guildId: input.guild.id,
@@ -454,7 +501,10 @@ export class SecurityService {
     });
     if (settings.antiSpam.timeoutMs > 0) {
       await input.member
-        .timeout(settings.antiSpam.timeoutMs, `AutoMod: message flooding (${input.messageCount} messages)`)
+        .timeout(
+          settings.antiSpam.timeoutMs,
+          `AutoMod: message flooding (${input.messageCount} messages)`,
+        )
         .catch(() => {});
     }
     await this.logging.logSecurity(input.guild, {
@@ -468,8 +518,14 @@ export class SecurityService {
   }
 
   /** Flags suspicious account joins for manual review (new/low-age accounts). */
-  async suspiciousAccountReport(guildId: string, days = 7): Promise<{ joins: number; young: number }> {
-    const events = await this.repos.security.listEvents(guildId, { kinds: ['member_join'], limit: 200 });
+  async suspiciousAccountReport(
+    guildId: string,
+    days = 7,
+  ): Promise<{ joins: number; young: number }> {
+    const events = await this.repos.security.listEvents(guildId, {
+      kinds: ['member_join'],
+      limit: 200,
+    });
     const cutoff = Date.now() - days * 86_400_000;
     const recent = events.rows.filter((row) => row.created_at.getTime() >= cutoff);
     const young = recent.filter((row) => {

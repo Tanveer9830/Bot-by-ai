@@ -47,7 +47,10 @@ export class AnalyticsRepository {
     return rows;
   }
 
-  async securityByDay(guildId: string, days = 30): Promise<{ day: string; count: number; high: number }[]> {
+  async securityByDay(
+    guildId: string,
+    days = 30,
+  ): Promise<{ day: string; count: number; high: number }[]> {
     const { rows } = await this.db.query<{ day: string; count: number; high: number }>(
       `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
               count(*)::int AS count,

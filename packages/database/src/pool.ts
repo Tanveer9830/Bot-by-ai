@@ -36,8 +36,18 @@ export interface Database {
     params?: readonly unknown[],
   ): Promise<QueryResult<T>>;
   /** Run `fn` inside a transaction; rolls back on throw, always releases the client. */
-  transaction<T>(fn: (client: PoolClient) => Promise<T>, options?: { isolation?: string }): Promise<T>;
-  health(): Promise<{ ok: boolean; latencyMs: number; error?: string; poolTotal: number; poolIdle: number; poolWaiting: number }>;
+  transaction<T>(
+    fn: (client: PoolClient) => Promise<T>,
+    options?: { isolation?: string },
+  ): Promise<T>;
+  health(): Promise<{
+    ok: boolean;
+    latencyMs: number;
+    error?: string;
+    poolTotal: number;
+    poolIdle: number;
+    poolWaiting: number;
+  }>;
   close(): Promise<void>;
 }
 
@@ -123,7 +133,9 @@ export async function withRetry<T>(
       const code = (error as { code?: string }).code;
       const retryable =
         code === undefined ||
-        ['40001', '40P01', '08000', '08003', '08006', '57P03', 'ECONNRESET', 'ETIMEDOUT'].includes(code);
+        ['40001', '40P01', '08000', '08003', '08006', '57P03', 'ECONNRESET', 'ETIMEDOUT'].includes(
+          code,
+        );
       if (!retryable || attempt === attempts) break;
       await new Promise((resolve) => setTimeout(resolve, base * 2 ** (attempt - 1)));
     }

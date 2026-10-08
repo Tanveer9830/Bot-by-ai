@@ -12,7 +12,10 @@ import { DEFAULT_ESCALATION } from '../automod/rules.js';
 export const snowflakeSchema = z.string().regex(SNOWFLAKE_REGEX, 'must be a Discord snowflake');
 export const snowflakeListSchema = z.array(snowflakeSchema).max(250);
 export const hexColorSchema = z
-  .union([z.string().regex(/^#?[0-9a-fA-F]{6}$/, 'must be a hex colour'), z.number().int().min(0).max(0xffffff)])
+  .union([
+    z.string().regex(/^#?[0-9a-fA-F]{6}$/, 'must be a hex colour'),
+    z.number().int().min(0).max(0xffffff),
+  ])
   .transform((value) => {
     if (typeof value === 'number') return value;
     return Number.parseInt(value.replace('#', ''), 16);
@@ -51,7 +54,10 @@ export const generalSettingsSchema = z.object({
 export const welcomeSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   channelId: snowflakeSchema.nullish(),
-  message: z.string().max(2000).default('Welcome {user} to **{server}**! You are member #{membercount}.'),
+  message: z
+    .string()
+    .max(2000)
+    .default('Welcome {user} to **{server}**! You are member #{membercount}.'),
   /** Optional embed title; falls back to "Welcome to {server}". */
   title: z.string().max(256).nullish(),
   useEmbed: z.boolean().default(true),
@@ -167,7 +173,12 @@ export const securitySettingsSchema = z.object({
       enabled: z.boolean().default(false),
       messagesPerWindow: z.number().int().min(2).max(100).default(7),
       windowMs: z.number().int().min(1000).max(120_000).default(6000),
-      timeoutMs: z.number().int().min(0).max(28 * 24 * 3600 * 1000).default(600_000),
+      timeoutMs: z
+        .number()
+        .int()
+        .min(0)
+        .max(28 * 24 * 3600 * 1000)
+        .default(600_000),
     })
     .default({}),
   trustedUserIds: snowflakeListSchema.default([]),
@@ -198,7 +209,12 @@ export const moderationSettingsSchema = z.object({
       timeoutAt: z.number().int().min(0).max(100).default(3),
       kickAt: z.number().int().min(0).max(100).default(5),
       banAt: z.number().int().min(0).max(100).default(7),
-      timeoutMs: z.number().int().min(0).max(28 * 24 * 3600 * 1000).default(600_000),
+      timeoutMs: z
+        .number()
+        .int()
+        .min(0)
+        .max(28 * 24 * 3600 * 1000)
+        .default(600_000),
     })
     .default({}),
   /** Warning retention in days; 0 keeps them forever. */
@@ -222,7 +238,9 @@ export const ticketSettingsSchema = z.object({
   welcomeMessage: z
     .string()
     .max(2000)
-    .default('Thanks for opening a ticket, {user}. A member of the support team will be with you shortly.'),
+    .default(
+      'Thanks for opening a ticket, {user}. A member of the support team will be with you shortly.',
+    ),
   panels: z
     .array(
       z.object({
@@ -311,7 +329,12 @@ export const noTagSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   protectedUserIds: snowflakeListSchema.default([]),
   action: z.enum(['log', 'warn', 'delete', 'timeout', 'kick']).default('warn'),
-  timeoutMs: z.number().int().min(0).max(28 * 24 * 3600 * 1000).default(600_000),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(28 * 24 * 3600 * 1000)
+    .default(600_000),
   notifyAuthor: z.boolean().default(true),
   deleteMessage: z.boolean().default(true),
   escalationThreshold: z.number().int().min(2).max(20).default(3),
@@ -333,12 +356,22 @@ export const noPinSettingsSchema = z.object({
   exemptChannelIds: snowflakeListSchema.default([]),
   allowSelfPin: z.boolean().default(true),
   allowModerators: z.boolean().default(true),
-  timeoutMs: z.number().int().min(0).max(28 * 24 * 3600 * 1000).default(0),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(28 * 24 * 3600 * 1000)
+    .default(0),
 });
 
 export const giveawaySettingsSchema = z.object({
   enabled: z.boolean().default(true),
-  defaultDurationMs: z.number().int().min(60_000).max(30 * 86_400_000).default(86_400_000),
+  defaultDurationMs: z
+    .number()
+    .int()
+    .min(60_000)
+    .max(30 * 86_400_000)
+    .default(86_400_000),
   maxWinners: z.number().int().min(1).max(100).default(10),
   winnerDmEnabled: z.boolean().default(true),
   requireRoleId: snowflakeSchema.nullish(),
@@ -547,7 +580,10 @@ export function validateModuleSettings(
   | { ok: true; data: Record<string, unknown> }
   | { ok: false; errors: { path: string; message: string }[] } {
   if (!(module in MODULE_SCHEMAS)) {
-    return { ok: false, errors: [{ path: 'module', message: `unknown settings module "${module}"` }] };
+    return {
+      ok: false,
+      errors: [{ path: 'module', message: `unknown settings module "${module}"` }],
+    };
   }
   const schema = MODULE_SCHEMAS[module as ModuleName];
   const parsed = schema.partial().safeParse(values);

@@ -29,7 +29,12 @@ export function registerGuildEvents(client: Client, services: BotServices): void
         ownerId: guild.ownerId,
         memberCount: guild.memberCount,
       })
-      .catch((error) => services.logger.warn('failed to register guild', { guildId: guild.id, error: String(error) }));
+      .catch((error) =>
+        services.logger.warn('failed to register guild', {
+          guildId: guild.id,
+          error: String(error),
+        }),
+      );
     services.logger.info('joined guild', { guildId: guild.id, members: guild.memberCount });
     await services.status.heartbeat(0).catch(() => {});
   });
@@ -51,17 +56,25 @@ export function registerGuildEvents(client: Client, services: BotServices): void
       })
       .catch(() => {});
     await services.security.handleMemberJoin({ guild: member.guild, member }).catch((error) =>
-      services.logger.warn('anti-raid check failed', { guildId: member.guild.id, error: String(error) }),
+      services.logger.warn('anti-raid check failed', {
+        guildId: member.guild.id,
+        error: String(error),
+      }),
     );
     await services.welcome.handleJoin(member.guild, member).catch((error) =>
-      services.logger.warn('welcome flow failed', { guildId: member.guild.id, error: String(error) }),
+      services.logger.warn('welcome flow failed', {
+        guildId: member.guild.id,
+        error: String(error),
+      }),
     );
   });
 
   client.on(Events.GuildMemberRemove, async (member) => {
     await services.welcome.handleLeave(member.guild, member as GuildMember).catch(() => {});
     // Distinguish kicks from voluntary leaves using the audit log.
-    const entry = await fetchAuditEntry(member.guild, AuditLogEvent.MemberKick, member.id).catch(() => null);
+    const entry = await fetchAuditEntry(member.guild, AuditLogEvent.MemberKick, member.id).catch(
+      () => null,
+    );
     if (entry) {
       await services.security
         .recordNukeEvent({
@@ -75,48 +88,63 @@ export function registerGuildEvents(client: Client, services: BotServices): void
     }
   });
 
-  client.on(Events.GuildMemberUpdate, async (before: GuildMember | PartialGuildMember, after: GuildMember) => {
-    const added = [...after.roles.cache.keys()].filter((roleId) => !before.roles.cache.has(roleId));
-    const removed = [...before.roles.cache.keys()].filter((roleId) => !after.roles.cache.has(roleId));
-    if (added.length === 0 && removed.length === 0 && before.nickname === after.nickname) return;
-    await services.logging
-      .log(after.guild, {
-        category: 'members',
-        title: 'Member updated',
-        description: [
-          `Member: <@${after.id}>`,
-          added.length ? `Roles added: ${added.map((id) => `<@&${id}>`).join(', ')}` : null,
-          removed.length ? `Roles removed: ${removed.map((id) => `<@&${id}>`).join(', ')}` : null,
-          before.nickname !== after.nickname ? `Nickname: ${before.nickname ?? '(none)'} → ${after.nickname ?? '(none)'}` : null,
-        ]
-          .filter(Boolean)
-          .join('\n'),
-        actorId: after.id,
-        auditAction: 'members.update',
-      })
-      .catch(() => {});
-
-    if (added.length > 0) {
-      const entry = await fetchAuditEntry(after.guild, AuditLogEvent.MemberRoleUpdate, after.id).catch(() => null);
-      await services.security
-        .recordNukeEvent({
-          guild: after.guild,
-          kind: 'member_role_update',
-          actorId: entry?.executorId ?? null,
-          targetId: after.id,
-          description: `Roles updated for ${after.user.tag} (${added.length} added, ${removed.length} removed)`,
-          severity: 1,
-          metadata: { added, removed },
+  client.on(
+    Events.GuildMemberUpdate,
+    async (before: GuildMember | PartialGuildMember, after: GuildMember) => {
+      const added = [...after.roles.cache.keys()].filter(
+        (roleId) => !before.roles.cache.has(roleId),
+      );
+      const removed = [...before.roles.cache.keys()].filter(
+        (roleId) => !after.roles.cache.has(roleId),
+      );
+      if (added.length === 0 && removed.length === 0 && before.nickname === after.nickname) return;
+      await services.logging
+        .log(after.guild, {
+          category: 'members',
+          title: 'Member updated',
+          description: [
+            `Member: <@${after.id}>`,
+            added.length ? `Roles added: ${added.map((id) => `<@&${id}>`).join(', ')}` : null,
+            removed.length ? `Roles removed: ${removed.map((id) => `<@&${id}>`).join(', ')}` : null,
+            before.nickname !== after.nickname
+              ? `Nickname: ${before.nickname ?? '(none)'} → ${after.nickname ?? '(none)'}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          actorId: after.id,
+          auditAction: 'members.update',
         })
         .catch(() => {});
-    }
-  });
+
+      if (added.length > 0) {
+        const entry = await fetchAuditEntry(
+          after.guild,
+          AuditLogEvent.MemberRoleUpdate,
+          after.id,
+        ).catch(() => null);
+        await services.security
+          .recordNukeEvent({
+            guild: after.guild,
+            kind: 'member_role_update',
+            actorId: entry?.executorId ?? null,
+            targetId: after.id,
+            description: `Roles updated for ${after.user.tag} (${added.length} added, ${removed.length} removed)`,
+            severity: 1,
+            metadata: { added, removed },
+          })
+          .catch(() => {});
+      }
+    },
+  );
 
   client.on(Events.GuildBanAdd, async (ban) => {
     await services.repos.users
       .upsertUser({ id: ban.user.id, username: ban.user.username, isBot: ban.user.bot })
       .catch(() => {});
-    const entry = await fetchAuditEntry(ban.guild, AuditLogEvent.MemberBanAdd, ban.user.id).catch(() => null);
+    const entry = await fetchAuditEntry(ban.guild, AuditLogEvent.MemberBanAdd, ban.user.id).catch(
+      () => null,
+    );
     const actorId = entry?.executorId ?? null;
     // Actions performed by the bot's own moderation commands are already logged.
     if (actorId === client.user?.id) return;
@@ -168,7 +196,8 @@ export function registerGuildEvents(client: Client, services: BotServices): void
       if (entry.action === AuditLogEvent.RoleUpdate) {
         const changes = entry.changes ?? [];
         const permissionChange = changes.find(
-          (change) => change.key === 'permissions' || change.key === 'name' || change.key === '$add',
+          (change) =>
+            change.key === 'permissions' || change.key === 'name' || change.key === '$add',
         );
         if (!permissionChange) return;
       }
@@ -199,7 +228,10 @@ export function registerGuildEvents(client: Client, services: BotServices): void
         });
       }
     } catch (error) {
-      services.logger.warn('audit log handling failed', { guildId: guild.id, error: String(error) });
+      services.logger.warn('audit log handling failed', {
+        guildId: guild.id,
+        error: String(error),
+      });
     }
   });
 
@@ -219,9 +251,13 @@ export function registerGuildEvents(client: Client, services: BotServices): void
       pinCache.set(channel.id, current);
       if (pinned.length === 0 && unpinned.length === 0) return;
 
-      for (const [action, messageIds] of [['pin', pinned], ['unpin', unpinned]] as const) {
+      for (const [action, messageIds] of [
+        ['pin', pinned],
+        ['unpin', unpinned],
+      ] as const) {
         for (const messageId of messageIds) {
-          const message = pins.get(messageId) ?? (await channel.messages.fetch(messageId).catch(() => null));
+          const message =
+            pins.get(messageId) ?? (await channel.messages.fetch(messageId).catch(() => null));
           const entry = await fetchAuditEntry(
             guild,
             action === 'pin' ? AuditLogEvent.MessagePin : AuditLogEvent.MessageUnpin,
@@ -234,7 +270,13 @@ export function registerGuildEvents(client: Client, services: BotServices): void
               messageId,
               messageAuthorId: message?.author?.id ?? undefined,
               actorId: entry?.executorId ?? undefined,
-              actorRoleIds: entry?.executor ? [...(await guild.members.fetch(entry.executorId as string).catch(() => null))?.roles.cache.keys() ?? []] : undefined,
+              actorRoleIds: entry?.executor
+                ? [
+                    ...((
+                      await guild.members.fetch(entry.executorId as string).catch(() => null)
+                    )?.roles.cache.keys() ?? []),
+                  ]
+                : undefined,
               actorIsBot: entry?.executor?.bot ?? false,
               actorIsModerator: false,
               now: Date.now(),
@@ -250,7 +292,11 @@ export function registerGuildEvents(client: Client, services: BotServices): void
             action,
             actorId: decision.actorId ?? null,
             messageAuthorId: message?.author?.id ?? null,
-            outcome: decision.shouldRevert ? 'reverted' : decision.shouldAlert ? 'alerted' : 'logged',
+            outcome: decision.shouldRevert
+              ? 'reverted'
+              : decision.shouldAlert
+                ? 'alerted'
+                : 'logged',
           });
 
           if (decision.shouldRevert && action === 'pin') {
@@ -293,26 +339,29 @@ export function registerGuildEvents(client: Client, services: BotServices): void
       .catch(() => {});
   });
 
-  client.on(Events.MessageUpdate, async (_before: Message | PartialMessage, after: Message | PartialMessage) => {
-    if (!after.inGuild() || after.author?.bot) return;
-    const before = _before as Message;
-    if ((before.content ?? '') === (after.content ?? '')) return;
-    await services.logging
-      .log(after.guild, {
-        category: 'messages',
-        title: 'Message edited',
-        description: [
-          `Author: <@${after.author?.id ?? 'unknown'}>`,
-          `Channel: <#${after.channelId}>`,
-          `Before: ${(before.content ?? '(not cached)').slice(0, 800)}`,
-          `After: ${(after.content ?? '(not cached)').slice(0, 800)}`,
-          `Jump: ${after.url}`,
-        ].join('\n'),
-        actorId: after.author?.id ?? null,
-        auditAction: 'messages.update',
-      })
-      .catch(() => {});
-  });
+  client.on(
+    Events.MessageUpdate,
+    async (_before: Message | PartialMessage, after: Message | PartialMessage) => {
+      if (!after.inGuild() || after.author?.bot) return;
+      const before = _before as Message;
+      if ((before.content ?? '') === (after.content ?? '')) return;
+      await services.logging
+        .log(after.guild, {
+          category: 'messages',
+          title: 'Message edited',
+          description: [
+            `Author: <@${after.author?.id ?? 'unknown'}>`,
+            `Channel: <#${after.channelId}>`,
+            `Before: ${(before.content ?? '(not cached)').slice(0, 800)}`,
+            `After: ${(after.content ?? '(not cached)').slice(0, 800)}`,
+            `Jump: ${after.url}`,
+          ].join('\n'),
+          actorId: after.author?.id ?? null,
+          auditAction: 'messages.update',
+        })
+        .catch(() => {});
+    },
+  );
 
   // ------------------------------------------------------------ voice + XP
   client.on(Events.VoiceStateUpdate, async (oldState: VoiceState, newState: VoiceState) => {
@@ -344,9 +393,7 @@ export function registerGuildEvents(client: Client, services: BotServices): void
         voiceTick.set(member.id, (voiceTick.get(member.id) ?? 0) + 1);
         if ((voiceTick.get(member.id) ?? 0) >= 3) {
           voiceTick.set(member.id, 0);
-          await services.levels
-            .handleVoiceMinute({ guild, member, minutes: 3 })
-            .catch(() => {});
+          await services.levels.handleVoiceMinute({ guild, member, minutes: 3 }).catch(() => {});
         }
       }
     }
@@ -371,11 +418,16 @@ export function registerGuildEvents(client: Client, services: BotServices): void
       }
 
       // Reaction roles (legacy reaction mode panels).
-      const panel = await services.repos.community.findReactionRolePanelByMessage(message.id).catch(() => null);
+      const panel = await services.repos.community
+        .findReactionRolePanelByMessage(message.id)
+        .catch(() => null);
       if (panel && panel.guild_id === guild.id) {
         const options = panel.options as { emoji?: string | null; roleId: string }[];
         const matched = options.find(
-          (option) => option.emoji && (option.emoji === reaction.emoji.name || option.emoji === `<:${reaction.emoji.name}:${reaction.emoji.id}>`),
+          (option) =>
+            option.emoji &&
+            (option.emoji === reaction.emoji.name ||
+              option.emoji === `<:${reaction.emoji.name}:${reaction.emoji.id}>`),
         );
         if (matched) {
           const member = await guild.members.fetch(user.id).catch(() => null);
@@ -406,11 +458,16 @@ export function registerGuildEvents(client: Client, services: BotServices): void
           starCount: Math.max(0, (reaction.count ?? 1) - 1),
         });
       }
-      const panel = await services.repos.community.findReactionRolePanelByMessage(message.id).catch(() => null);
+      const panel = await services.repos.community
+        .findReactionRolePanelByMessage(message.id)
+        .catch(() => null);
       if (panel && panel.guild_id === guild.id) {
         const options = panel.options as { emoji?: string | null; roleId: string }[];
         const matched = options.find(
-          (option) => option.emoji && (option.emoji === reaction.emoji.name || option.emoji === `<:${reaction.emoji.name}:${reaction.emoji.id}>`),
+          (option) =>
+            option.emoji &&
+            (option.emoji === reaction.emoji.name ||
+              option.emoji === `<:${reaction.emoji.name}:${reaction.emoji.id}>`),
         );
         if (matched) {
           const member = await guild.members.fetch(user.id).catch(() => null);
@@ -461,5 +518,10 @@ async function fetchAuditEntry(
 }
 
 export function isWritableChannel(type: ChannelType): boolean {
-  return [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.PublicThread, ChannelType.PrivateThread].includes(type);
+  return [
+    ChannelType.GuildText,
+    ChannelType.GuildAnnouncement,
+    ChannelType.PublicThread,
+    ChannelType.PrivateThread,
+  ].includes(type);
 }

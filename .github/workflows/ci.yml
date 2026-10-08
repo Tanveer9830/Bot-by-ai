@@ -58,11 +58,16 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      # The workspace packages expose their types through dist/, so they must be
+      # compiled before any workspace typecheck can resolve @bot-by-ai/*.
+      - name: Build workspace packages
+        run: npm run build:packages
+
       - name: Typecheck (all workspaces + tests)
         run: npm run typecheck:all
 
-      - name: Build packages, bot and dashboard
-        run: npm run build
+      - name: Build bot and dashboard
+        run: npm run build -w @bot-by-ai/bot && npm run build -w @bot-by-ai/dashboard
 
       - name: Unit tests
         run: npx vitest run tests/unit
@@ -90,7 +95,6 @@ jobs:
           push: false
           tags: bot-by-ai:ci
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build dashboard image
         uses: docker/build-push-action@v6
@@ -100,7 +104,6 @@ jobs:
           push: false
           tags: bot-by-ai-dashboard:ci
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Validate compose file
         run: docker compose -f docker-compose.yml config --quiet

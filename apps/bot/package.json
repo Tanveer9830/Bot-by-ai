@@ -1,0 +1,24 @@
+{
+  "name": "@bot-by-ai/bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "deploy:commands": "tsx src/scripts/deploy-commands.ts"
+  },
+  "dependencies": {
+    "@bot-by-ai/database": "*",
+    "@bot-by-ai/shared": "*",
+    "discord.js": "^14.24.2",
+    "zod": "^3.25.76",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}

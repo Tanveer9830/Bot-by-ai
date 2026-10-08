@@ -45,7 +45,14 @@ export class TicketRepository {
       const { rows } = await client.query<TicketRow>(
         `INSERT INTO tickets (guild_id, ticket_number, channel_id, user_id, category_key, subject)
          VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-        [input.guildId, number, input.channelId, input.userId, input.categoryKey, input.subject ?? null],
+        [
+          input.guildId,
+          number,
+          input.channelId,
+          input.userId,
+          input.categoryKey,
+          input.subject ?? null,
+        ],
       );
       return rows[0] as TicketRow;
     });
@@ -196,7 +203,10 @@ export class TicketRepository {
     );
   }
 
-  async getTranscript(ticketId: number, limit = 2000): Promise<
+  async getTranscript(
+    ticketId: number,
+    limit = 2000,
+  ): Promise<
     { author_id: string; author_tag: string | null; content: string | null; created_at: Date }[]
   > {
     const { rows } = await this.db.query(
@@ -207,7 +217,9 @@ export class TicketRepository {
     return rows as never;
   }
 
-  async stats(guildId: string): Promise<{ open: number; claimed: number; closed: number; avgRating: number | null }> {
+  async stats(
+    guildId: string,
+  ): Promise<{ open: number; claimed: number; closed: number; avgRating: number | null }> {
     const { rows } = await this.db.query<{
       open: string;
       claimed: string;

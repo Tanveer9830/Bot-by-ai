@@ -1,5 +1,4 @@
 import {
-  AttachmentBuilder,
   GuildMember,
   MessageFlags,
   PermissionFlagsBits,
@@ -29,7 +28,8 @@ function guildOf(interaction: ChatInputCommandInteraction): Guild {
 
 function actor(interaction: ChatInputCommandInteraction): GuildMember {
   const member = interaction.member;
-  if (!member || !(member instanceof GuildMember)) throw new UserFacingError('Use this inside a server.');
+  if (!member || !(member instanceof GuildMember))
+    throw new UserFacingError('Use this inside a server.');
   return member;
 }
 
@@ -44,40 +44,67 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('view')
           .setDescription('Show one settings module (or list them all)')
-          .addStringOption((option) => option.setName('module').setDescription('Settings module').setAutocomplete(true)),
+          .addStringOption((option) =>
+            option.setName('module').setDescription('Settings module').setAutocomplete(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('set')
           .setDescription('Set one value inside a module using JSON')
           .addStringOption((option) =>
-            option.setName('module').setDescription('Settings module').setRequired(true).setAutocomplete(true),
+            option
+              .setName('module')
+              .setDescription('Settings module')
+              .setRequired(true)
+              .setAutocomplete(true),
           )
-          .addStringOption((option) => option.setName('key').setDescription('Field name, e.g. enabled').setRequired(true))
           .addStringOption((option) =>
-            option.setName('value').setDescription('JSON value: true, 12, "text", ["a","b"]').setRequired(true),
+            option.setName('key').setDescription('Field name, e.g. enabled').setRequired(true),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('value')
+              .setDescription('JSON value: true, 12, "text", ["a","b"]')
+              .setRequired(true),
           ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('reset')
           .setDescription('Reset a module (or everything) to the defaults')
-          .addStringOption((option) => option.setName('module').setDescription('Settings module').setAutocomplete(true))
+          .addStringOption((option) =>
+            option.setName('module').setDescription('Settings module').setAutocomplete(true),
+          )
           .addStringOption((option) =>
             option
               .setName('scope')
               .setDescription('Reset everything when module is omitted')
-              .addChoices({ name: 'module', value: 'module' }, { name: 'all settings', value: 'all' }),
+              .addChoices(
+                { name: 'module', value: 'module' },
+                { name: 'all settings', value: 'all' },
+              ),
           ),
       )
-      .addSubcommand((sub) => sub.setName('history').setDescription('Show the last 25 settings changes'))
-      .addSubcommand((sub) => sub.setName('export').setDescription('Download every setting as JSON'))
+      .addSubcommand((sub) =>
+        sub.setName('history').setDescription('Show the last 25 settings changes'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('export').setDescription('Download every setting as JSON'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('import')
           .setDescription('Restore settings from a JSON export (merges per module)')
-          .addAttachmentOption((option) => option.setName('file').setDescription('JSON file from /config export').setRequired(true))
-          .addBooleanOption((option) => option.setName('overwrite').setDescription('Replace modules that already have values')),
+          .addAttachmentOption((option) =>
+            option
+              .setName('file')
+              .setDescription('JSON file from /config export')
+              .setRequired(true),
+          )
+          .addBooleanOption((option) =>
+            option.setName('overwrite').setDescription('Replace modules that already have values'),
+          ),
       ),
     autocomplete: async ({ interaction, services }) => {
       void services;
@@ -104,12 +131,18 @@ export const commands: BotCommand[] = defineCommands([
             return `${configured ? '🟢' : '⚪'} **${name}**${configured ? ` — ${Object.keys(stored).length} field(s) stored` : ' — defaults'}`;
           }).join('\n');
           await interaction.reply({
-            embeds: [baseEmbed(COLORS.primary).setTitle('⚙️ Settings modules').setDescription(lines).setFooter({ text: 'Use /config view module:<name> for the full values' })],
+            embeds: [
+              baseEmbed(COLORS.primary)
+                .setTitle('⚙️ Settings modules')
+                .setDescription(lines)
+                .setFooter({ text: 'Use /config view module:<name> for the full values' }),
+            ],
             flags: MessageFlags.Ephemeral,
           });
           return;
         }
-        if (!MODULE_NAMES.includes(module)) throw new UserFacingError(`Unknown module \`${module}\`.`);
+        if (!MODULE_NAMES.includes(module))
+          throw new UserFacingError(`Unknown module \`${module}\`.`);
         const values = settings[module] ?? moduleDefaults(module);
         const json = JSON.stringify(values, null, 2);
         await interaction.reply({
@@ -126,22 +159,36 @@ export const commands: BotCommand[] = defineCommands([
 
       if (sub === 'set') {
         const module = interaction.options.getString('module', true) as ModuleName;
-        if (!MODULE_NAMES.includes(module)) throw new UserFacingError(`Unknown module \`${module}\`.`);
+        if (!MODULE_NAMES.includes(module))
+          throw new UserFacingError(`Unknown module \`${module}\`.`);
         const key = interaction.options.getString('key', true);
         const raw = interaction.options.getString('value', true);
         let parsed: unknown;
         try {
           parsed = JSON.parse(raw);
         } catch {
-          throw new UserFacingError('The value must be valid JSON: `true`, `12`, `"text"` or `["a","b"]`.');
+          throw new UserFacingError(
+            'The value must be valid JSON: `true`, `12`, `"text"` or `["a","b"]`.',
+          );
         }
         const validation = validateModuleSettings(module, { [key]: parsed });
         if (!validation.ok) {
-          throw new UserFacingError(`That value was rejected:\n${validation.errors.map((error) => `• \`${error.path}\`: ${error.message}`).join('\n')}`);
+          throw new UserFacingError(
+            `That value was rejected:\n${validation.errors.map((error) => `• \`${error.path}\`: ${error.message}`).join('\n')}`,
+          );
         }
-        await services.settings.update(guild.id, module, { [key]: parsed }, { actorId: interaction.user.id, source: 'command' });
+        await services.settings.update(
+          guild.id,
+          module,
+          { [key]: parsed },
+          { actorId: interaction.user.id, source: 'command' },
+        );
         await interaction.reply({
-          embeds: [successEmbed(`\`${module}.${key}\` updated to \`${truncate(raw, 200)}\`.\nEvery change is validated and recorded in the settings history.`)],
+          embeds: [
+            successEmbed(
+              `\`${module}.${key}\` updated to \`${truncate(raw, 200)}\`.\nEvery change is validated and recorded in the settings history.`,
+            ),
+          ],
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -150,7 +197,10 @@ export const commands: BotCommand[] = defineCommands([
       if (sub === 'reset') {
         const module = interaction.options.getString('module') as ModuleName | null;
         const scope = interaction.options.getString('scope') ?? 'module';
-        if (!module && scope !== 'all') throw new UserFacingError('Provide a module, or set `scope: all settings` to reset everything.');
+        if (!module && scope !== 'all')
+          throw new UserFacingError(
+            'Provide a module, or set `scope: all settings` to reset everything.',
+          );
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const confirmed = await confirmAction(interaction, {
           title: 'Reset settings',
@@ -165,9 +215,15 @@ export const commands: BotCommand[] = defineCommands([
         }
         const targets = module ? [module] : MODULE_NAMES;
         for (const name of targets) {
-          await services.settings.update(guild.id, name, moduleDefaults(name), { actorId: interaction.user.id, source: 'command' });
+          await services.settings.update(guild.id, name, moduleDefaults(name), {
+            actorId: interaction.user.id,
+            source: 'command',
+          });
         }
-        await interaction.editReply({ embeds: [successEmbed(`Reset ${targets.length} module(s) to defaults.`)], components: [] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Reset ${targets.length} module(s) to defaults.`)],
+          components: [],
+        });
         return;
       }
 
@@ -179,7 +235,11 @@ export const commands: BotCommand[] = defineCommands([
           history,
           (entry) =>
             `**${entry.module}** by ${entry.changed_by ? `<@${entry.changed_by}>` : 'system'} (${entry.source}) — <t:${Math.floor(new Date(entry.changed_at).getTime() / 1000)}:R>\n\`\`\`json\n${truncate(JSON.stringify(entry.new_values ?? {}, null, 0), 300)}\n\`\`\``,
-          { title: '🕘 Settings history', pageSize: 5, emptyMessage: 'No settings changes recorded yet.' },
+          {
+            title: '🕘 Settings history',
+            pageSize: 5,
+            emptyMessage: 'No settings changes recorded yet.',
+          },
         );
         return;
       }
@@ -187,10 +247,21 @@ export const commands: BotCommand[] = defineCommands([
       if (sub === 'export') {
         const settings = await services.settings.getAll(guild.id);
         await interaction.reply({
-          embeds: [successEmbed(`Exported ${Object.keys(settings).length} module(s). Keep this file private — it can contain channel ids and message templates.`)],
+          embeds: [
+            successEmbed(
+              `Exported ${Object.keys(settings).length} module(s). Keep this file private — it can contain channel ids and message templates.`,
+            ),
+          ],
           files: [
             {
-              attachment: Buffer.from(JSON.stringify({ guildId: guild.id, exportedAt: new Date().toISOString(), settings }, null, 2), 'utf8'),
+              attachment: Buffer.from(
+                JSON.stringify(
+                  { guildId: guild.id, exportedAt: new Date().toISOString(), settings },
+                  null,
+                  2,
+                ),
+                'utf8',
+              ),
               name: `bot-by-ai-settings-${guild.id}.json`,
             },
           ],
@@ -201,7 +272,8 @@ export const commands: BotCommand[] = defineCommands([
 
       // import
       const attachment = interaction.options.getAttachment('file', true);
-      if (attachment.size > 512_000) throw new UserFacingError('That file is too large (limit 500 KB).');
+      if (attachment.size > 512_000)
+        throw new UserFacingError('That file is too large (limit 500 KB).');
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const response = await fetch(attachment.url).catch(() => null);
       if (!response?.ok) throw new UserFacingError('I could not download that attachment.');
@@ -212,7 +284,8 @@ export const commands: BotCommand[] = defineCommands([
         throw new UserFacingError('That file is not valid JSON.');
       }
       const settings = (parsed as { settings?: unknown }).settings ?? parsed;
-      if (!settings || typeof settings !== 'object') throw new UserFacingError('The export does not contain a settings object.');
+      if (!settings || typeof settings !== 'object')
+        throw new UserFacingError('The export does not contain a settings object.');
       const overwrite = interaction.options.getBoolean('overwrite') ?? false;
       const existing = await services.settings.getAll(guild.id);
       const applied: string[] = [];
@@ -236,10 +309,15 @@ export const commands: BotCommand[] = defineCommands([
           invalid.push(`${module} (${validation.errors.map((error) => error.path).join(', ')})`);
           continue;
         }
-        await services.settings.update(guild.id, module as ModuleName, values as Record<string, unknown>, {
-          actorId: interaction.user.id,
-          source: 'command',
-        });
+        await services.settings.update(
+          guild.id,
+          module as ModuleName,
+          values as Record<string, unknown>,
+          {
+            actorId: interaction.user.id,
+            source: 'command',
+          },
+        );
         applied.push(module);
       }
       await interaction.editReply({
@@ -247,7 +325,9 @@ export const commands: BotCommand[] = defineCommands([
           successEmbed(
             [
               `Imported ${applied.length} module(s): ${applied.join(', ') || 'none'}.`,
-              skipped.length > 0 ? `Skipped (already configured, use \`overwrite:true\`): ${skipped.join(', ')}.` : null,
+              skipped.length > 0
+                ? `Skipped (already configured, use \`overwrite:true\`): ${skipped.join(', ')}.`
+                : null,
               invalid.length > 0 ? `Rejected: ${invalid.join(', ')}.` : null,
             ]
               .filter(Boolean)
@@ -267,11 +347,34 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('create')
           .setDescription('Create or replace a custom command')
-          .addStringOption((option) => option.setName('name').setDescription('Command name (a-z0-9-)').setRequired(true).setMaxLength(32))
-          .addStringOption((option) => option.setName('response').setDescription('Response text ({user}, {server}, {args} are supported)').setRequired(true).setMaxLength(2000))
-          .addStringOption((option) => option.setName('description').setDescription('Shown in the command list').setMaxLength(100))
-          .addChannelOption((option) => option.setName('channel').setDescription('Only allow the command in this channel'))
-          .addRoleOption((option) => option.setName('required_role').setDescription('Only members with this role may use it'))
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name (a-z0-9-)')
+              .setRequired(true)
+              .setMaxLength(32),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('response')
+              .setDescription('Response text ({user}, {server}, {args} are supported)')
+              .setRequired(true)
+              .setMaxLength(2000),
+          )
+          .addStringOption((option) =>
+            option
+              .setName('description')
+              .setDescription('Shown in the command list')
+              .setMaxLength(100),
+          )
+          .addChannelOption((option) =>
+            option.setName('channel').setDescription('Only allow the command in this channel'),
+          )
+          .addRoleOption((option) =>
+            option
+              .setName('required_role')
+              .setDescription('Only members with this role may use it'),
+          )
           .addStringOption((option) =>
             option
               .setName('action')
@@ -288,21 +391,43 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('delete')
           .setDescription('Delete a custom command')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setAutocomplete(true)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setAutocomplete(true),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('list').setDescription('List every custom command in this server'))
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('List every custom command in this server'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('info')
           .setDescription('Show the stored definition of a command')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setAutocomplete(true)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setAutocomplete(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('toggle')
           .setDescription('Enable or disable a command')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setAutocomplete(true))
-          .addBooleanOption((option) => option.setName('enabled').setDescription('Enabled?').setRequired(true)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setAutocomplete(true),
+          )
+          .addBooleanOption((option) =>
+            option.setName('enabled').setDescription('Enabled?').setRequired(true),
+          ),
       ),
     autocomplete: async ({ interaction, services }) => {
       const guildId = interaction.guildId;
@@ -316,13 +441,20 @@ export const commands: BotCommand[] = defineCommands([
         rows
           .filter((row) => row.name.toLowerCase().includes(focused))
           .slice(0, 25)
-          .map((row) => ({ name: `${row.name}${row.enabled ? '' : ' (disabled)'}`, value: row.name })),
+          .map((row) => ({
+            name: `${row.name}${row.enabled ? '' : ' (disabled)'}`,
+            value: row.name,
+          })),
       );
     },
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const member = actor(interaction);
-      requireUserPermissions(member, [PermissionFlagsBits.ManageGuild], 'custom command management');
+      requireUserPermissions(
+        member,
+        [PermissionFlagsBits.ManageGuild],
+        'custom command management',
+      );
       const sub = interaction.options.getSubcommand(true);
       const prefix = (await services.settings.get<{ prefix: string }>(guild.id, 'general')).prefix;
 
@@ -334,7 +466,11 @@ export const commands: BotCommand[] = defineCommands([
           rows,
           (row) =>
             `**${row.name}** ${row.enabled ? '' : '(disabled) '}— uses: ${row.uses}\n\`${prefix}${row.name}\` • ${truncate(String((row.payload as { response?: string }).response ?? ''), 120)}`,
-          { title: `🧩 Custom commands (${rows.length})`, pageSize: 8, emptyMessage: `No custom commands yet. Create one with \`/customcommand create\`.` },
+          {
+            title: `🧩 Custom commands (${rows.length})`,
+            pageSize: 8,
+            emptyMessage: `No custom commands yet. Create one with \`/customcommand create\`.`,
+          },
         );
         return;
       }
@@ -347,8 +483,13 @@ export const commands: BotCommand[] = defineCommands([
           embeds: [
             baseEmbed(COLORS.primary)
               .setTitle(`🧩 ${row.name}`)
-              .setDescription(`\`\`\`json\n${truncate(JSON.stringify(row.payload, null, 2), 3800)}\n\`\`\``)
-              .addFields({ name: 'Uses', value: String(row.uses), inline: true }, { name: 'Enabled', value: row.enabled ? 'yes' : 'no', inline: true }),
+              .setDescription(
+                `\`\`\`json\n${truncate(JSON.stringify(row.payload, null, 2), 3800)}\n\`\`\``,
+              )
+              .addFields(
+                { name: 'Uses', value: String(row.uses), inline: true },
+                { name: 'Enabled', value: row.enabled ? 'yes' : 'no', inline: true },
+              ),
           ],
           flags: MessageFlags.Ephemeral,
         });
@@ -359,8 +500,11 @@ export const commands: BotCommand[] = defineCommands([
         const name = interaction.options.getString('name', true).toLowerCase();
         const deleted = await services.repos.customCommands.deleteGuild(guild.id, name);
         await interaction.reply({
-          embeds: [deleted ? successEmbed(`Deleted \`${name}\`.`) : warningEmbed(`No custom command called \`${name}\`.`)]
-          ,
+          embeds: [
+            deleted
+              ? successEmbed(`Deleted \`${name}\`.`)
+              : warningEmbed(`No custom command called \`${name}\`.`),
+          ],
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -378,13 +522,17 @@ export const commands: BotCommand[] = defineCommands([
           enabled,
           actorId: interaction.user.id,
         });
-        await interaction.reply({ embeds: [successEmbed(`\`${name}\` is now ${enabled ? 'enabled' : 'disabled'}.`)], flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          embeds: [successEmbed(`\`${name}\` is now ${enabled ? 'enabled' : 'disabled'}.`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
 
       // create
       const name = interaction.options.getString('name', true).toLowerCase();
-      if (!/^[a-z0-9-]{1,32}$/.test(name)) throw new UserFacingError('Names may only contain a-z, 0-9 and dashes.');
+      if (!/^[a-z0-9-]{1,32}$/.test(name))
+        throw new UserFacingError('Names may only contain a-z, 0-9 and dashes.');
       const response = interaction.options.getString('response', true);
       const channel = interaction.options.getChannel('channel');
       const requiredRole = interaction.options.getRole('required_role');
@@ -430,10 +578,16 @@ export const commands: BotCommand[] = defineCommands([
   },
 ]);
 
-
 /** Validates a custom-command definition against the shared zod schema. */
-function validateCustomCommand(payload: Record<string, unknown>): { ok: true } | { ok: false; errors: string[] } {
+function validateCustomCommand(
+  payload: Record<string, unknown>,
+): { ok: true } | { ok: false; errors: string[] } {
   const parsed = customCommandSchema.safeParse(payload);
   if (parsed.success) return { ok: true };
-  return { ok: false, errors: parsed.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`) };
+  return {
+    ok: false,
+    errors: parsed.error.issues.map(
+      (issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`,
+    ),
+  };
 }

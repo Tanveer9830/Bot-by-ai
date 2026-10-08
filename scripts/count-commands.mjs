@@ -6,4 +6,15 @@ const { loaded, issues } = await registry.loadFrom();
 const json = registry.toJSON();
 const byCategory = new Map();
 for (const c of registry.list()) byCategory.set(c.category, (byCategory.get(c.category) ?? 0) + 1);
-console.log(JSON.stringify({ loaded, validationIssues: issues.length, topLevel: json.length, byCategory: Object.fromEntries([...byCategory].sort()) }, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      loaded,
+      validationIssues: issues.length,
+      topLevel: json.length,
+      byCategory: Object.fromEntries([...byCategory].sort()),
+    },
+    null,
+    2,
+  ),
+);

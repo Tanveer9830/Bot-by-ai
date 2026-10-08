@@ -39,19 +39,20 @@ export async function GET(request: NextRequest): Promise<Response> {
     .then((result) => result.rows[0] ?? {})
     .catch(() => ({}));
 
-  const [health, instances, commandStats, sessions, pendingTasks, audit, globalCommands] = await Promise.all([
-    db.health().catch((error: unknown) => ({
-      ok: false,
-      latencyMs: 0,
-      error: error instanceof Error ? error.message : 'unknown',
-    })),
-    repos.analytics.listBotInstances().catch(() => []),
-    repos.commandUsage.globalStats(7).catch(() => null),
-    repos.sessions.countActive().catch(() => null),
-    repos.tasks.pendingCount().catch(() => null),
-    repos.audit.list({ limit: 15 }).catch(() => ({ rows: [], total: 0 })),
-    repos.customCommands.listGlobal().catch(() => []),
-  ]);
+  const [health, instances, commandStats, sessions, pendingTasks, audit, globalCommands] =
+    await Promise.all([
+      db.health().catch((error: unknown) => ({
+        ok: false,
+        latencyMs: 0,
+        error: error instanceof Error ? error.message : 'unknown',
+      })),
+      repos.analytics.listBotInstances().catch(() => []),
+      repos.commandUsage.globalStats(7).catch(() => null),
+      repos.sessions.countActive().catch(() => null),
+      repos.tasks.pendingCount().catch(() => null),
+      repos.audit.list({ limit: 15 }).catch(() => ({ rows: [], total: 0 })),
+      repos.customCommands.listGlobal().catch(() => []),
+    ]);
 
   return Response.json({
     ok: true,

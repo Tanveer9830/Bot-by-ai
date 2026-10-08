@@ -12,7 +12,11 @@ import type { ModerationAction, Repositories } from '@bot-by-ai/database';
 import type { GuildSettingsService } from './settings.js';
 import type { LoggingService } from './logging.js';
 import type { ModerationSettings } from './types.js';
-import { assertCanModerate, requireBotPermissions, requireUserPermissions } from '../core/resolvers.js';
+import {
+  assertCanModerate,
+  requireBotPermissions,
+  requireUserPermissions,
+} from '../core/resolvers.js';
 
 export interface ModerationResult {
   caseNumber: number;
@@ -53,7 +57,10 @@ export class ModerationService {
     return this.settings.get<ModerationSettings>(guildId, 'moderation');
   }
 
-  private async prepare(request: ModerationRequest, action: ModerationAction): Promise<ModerationSettings> {
+  private async prepare(
+    request: ModerationRequest,
+    action: ModerationAction,
+  ): Promise<ModerationSettings> {
     const settings = await this.getSettings(request.guild.id);
     if (!request.skipHierarchy) {
       assertCanModerate({
@@ -119,7 +126,9 @@ export class ModerationService {
     }
   }
 
-  async ban(request: ModerationRequest & { deleteMessageSeconds?: number }): Promise<ModerationResult> {
+  async ban(
+    request: ModerationRequest & { deleteMessageSeconds?: number },
+  ): Promise<ModerationResult> {
     const settings = await this.prepare(request, 'ban');
     requireBotPermissions(request.guild, [PermissionFlagsBits.BanMembers], 'banning members');
     const caseNumber = await this.createCase(request, 'ban');
@@ -143,7 +152,10 @@ export class ModerationService {
     const ban = await request.guild.bans.fetch(request.targetUser.id).catch(() => null);
     if (!ban) throw new UserFacingError('That user is not banned in this server.');
     const caseNumber = await this.createCase({ ...request, targetMember: null }, 'unban');
-    await request.guild.bans.remove(request.targetUser.id, `${request.actor.user.tag}: ${request.reason ?? 'no reason'}`);
+    await request.guild.bans.remove(
+      request.targetUser.id,
+      `${request.actor.user.tag}: ${request.reason ?? 'no reason'}`,
+    );
     return { caseNumber, action: 'unban', userId: request.targetUser.id, dmDelivered: false };
   }
 
@@ -152,7 +164,9 @@ export class ModerationService {
     if (!request.targetMember) throw new UserFacingError('That member is not in this server.');
     requireBotPermissions(request.guild, [PermissionFlagsBits.KickMembers], 'kicking members');
     const caseNumber = await this.createCase(request, 'kick');
-    await request.targetMember.kick(`${request.actor.user.tag}: ${request.reason ?? 'no reason'} (case #${caseNumber})`);
+    await request.targetMember.kick(
+      `${request.actor.user.tag}: ${request.reason ?? 'no reason'} (case #${caseNumber})`,
+    );
     const dmDelivered = await this.notifyTarget(request, 'kick', settings, caseNumber);
     return { caseNumber, action: 'kick', userId: request.targetUser.id, dmDelivered };
   }
@@ -160,7 +174,11 @@ export class ModerationService {
   async timeout(request: ModerationRequest & { durationMs: number }): Promise<ModerationResult> {
     const settings = await this.prepare(request, 'timeout');
     if (!request.targetMember) throw new UserFacingError('That member is not in this server.');
-    requireBotPermissions(request.guild, [PermissionFlagsBits.ModerateMembers], 'timing out members');
+    requireBotPermissions(
+      request.guild,
+      [PermissionFlagsBits.ModerateMembers],
+      'timing out members',
+    );
     if (request.durationMs > 28 * 24 * 60 * 60 * 1000) {
       throw new UserFacingError('Discord limits timeouts to 28 days.');
     }
@@ -169,19 +187,32 @@ export class ModerationService {
       request.durationMs,
       `${request.actor.user.tag}: ${request.reason ?? 'no reason'} (case #${caseNumber})`,
     );
-    const dmDelivered = await this.notifyTarget(request, 'timeout', settings, caseNumber, request.durationMs);
+    const dmDelivered = await this.notifyTarget(
+      request,
+      'timeout',
+      settings,
+      caseNumber,
+      request.durationMs,
+    );
     return { caseNumber, action: 'timeout', userId: request.targetUser.id, dmDelivered };
   }
 
   async removeTimeout(request: ModerationRequest): Promise<ModerationResult> {
     await this.prepare(request, 'untimeout');
     if (!request.targetMember) throw new UserFacingError('That member is not in this server.');
-    requireBotPermissions(request.guild, [PermissionFlagsBits.ModerateMembers], 'removing timeouts');
+    requireBotPermissions(
+      request.guild,
+      [PermissionFlagsBits.ModerateMembers],
+      'removing timeouts',
+    );
     if (!request.targetMember.isCommunicationDisabled()) {
       throw new UserFacingError('That member is not currently timed out.');
     }
     const caseNumber = await this.createCase(request, 'untimeout');
-    await request.targetMember.timeout(null, `${request.actor.user.tag} removed the timeout (case #${caseNumber})`);
+    await request.targetMember.timeout(
+      null,
+      `${request.actor.user.tag} removed the timeout (case #${caseNumber})`,
+    );
     return { caseNumber, action: 'untimeout', userId: request.targetUser.id, dmDelivered: false };
   }
 
@@ -200,10 +231,20 @@ export class ModerationService {
       caseId: moderationCase?.id ?? null,
       weight: 1,
     });
-    const warningCount = await this.repos.moderation.countActiveWarnings(request.guild.id, request.targetUser.id);
+    const warningCount = await this.repos.moderation.countActiveWarnings(
+      request.guild.id,
+      request.targetUser.id,
+    );
     await this.notifyTarget(request, 'warn', settings, caseNumber);
     const escalation = await this.applyWarningEscalation(request, warningCount, settings);
-    return { caseNumber, action: 'warn', userId: request.targetUser.id, dmDelivered: true, warningCount, escalation };
+    return {
+      caseNumber,
+      action: 'warn',
+      userId: request.targetUser.id,
+      dmDelivered: true,
+      warningCount,
+      escalation,
+    };
   }
 
   /**
@@ -220,11 +261,18 @@ export class ModerationService {
     if (!member) return undefined;
     try {
       if (thresholds.banAt > 0 && warningCount >= thresholds.banAt) {
-        await this.ban({ ...request, reason: `Automatic escalation: ${warningCount} active warnings`, skipHierarchy: false });
+        await this.ban({
+          ...request,
+          reason: `Automatic escalation: ${warningCount} active warnings`,
+          skipHierarchy: false,
+        });
         return `banned (${warningCount} warnings reached the ban threshold of ${thresholds.banAt})`;
       }
       if (thresholds.kickAt > 0 && warningCount >= thresholds.kickAt) {
-        await this.kick({ ...request, reason: `Automatic escalation: ${warningCount} active warnings` });
+        await this.kick({
+          ...request,
+          reason: `Automatic escalation: ${warningCount} active warnings`,
+        });
         return `kicked (${warningCount} warnings reached the kick threshold of ${thresholds.kickAt})`;
       }
       if (thresholds.timeoutAt > 0 && warningCount >= thresholds.timeoutAt) {
@@ -252,9 +300,15 @@ export class ModerationService {
     if (!request.targetMember) throw new UserFacingError('That member is not in this server.');
     const role = await request.guild.roles.fetch(request.roleId).catch(() => null);
     if (!role) throw new UserFacingError('That role does not exist.');
-    const me = requireBotPermissions(request.guild, [PermissionFlagsBits.ManageRoles], 'managing roles');
+    const me = requireBotPermissions(
+      request.guild,
+      [PermissionFlagsBits.ManageRoles],
+      'managing roles',
+    );
     if (me && role.position >= me.roles.highest.position) {
-      throw new UserFacingError('That role is higher than my highest role, so Discord will reject the change.');
+      throw new UserFacingError(
+        'That role is higher than my highest role, so Discord will reject the change.',
+      );
     }
     assertCanModerate({
       guild: request.guild,
@@ -266,9 +320,18 @@ export class ModerationService {
       action: 'role_add',
     });
     const caseNumber = await this.createCase(request, 'role_add');
-    await request.targetMember.roles.add(role, `${request.actor.user.tag}: ${request.reason ?? 'role added'}`);
+    await request.targetMember.roles.add(
+      role,
+      `${request.actor.user.tag}: ${request.reason ?? 'role added'}`,
+    );
     void settings;
-    return { caseNumber, action: 'role_add', userId: request.targetUser.id, dmDelivered: false, detail: role.name };
+    return {
+      caseNumber,
+      action: 'role_add',
+      userId: request.targetUser.id,
+      dmDelivered: false,
+      detail: role.name,
+    };
   }
 
   async removeRole(request: ModerationRequest & { roleId: string }): Promise<ModerationResult> {
@@ -276,9 +339,15 @@ export class ModerationService {
     if (!request.targetMember) throw new UserFacingError('That member is not in this server.');
     const role = await request.guild.roles.fetch(request.roleId).catch(() => null);
     if (!role) throw new UserFacingError('That role does not exist.');
-    const me = requireBotPermissions(request.guild, [PermissionFlagsBits.ManageRoles], 'managing roles');
+    const me = requireBotPermissions(
+      request.guild,
+      [PermissionFlagsBits.ManageRoles],
+      'managing roles',
+    );
     if (me && role.position >= me.roles.highest.position) {
-      throw new UserFacingError('That role is higher than my highest role, so Discord will reject the change.');
+      throw new UserFacingError(
+        'That role is higher than my highest role, so Discord will reject the change.',
+      );
     }
     assertCanModerate({
       guild: request.guild,
@@ -290,14 +359,33 @@ export class ModerationService {
       action: 'role_remove',
     });
     const caseNumber = await this.createCase(request, 'role_remove');
-    await request.targetMember.roles.remove(role, `${request.actor.user.tag}: ${request.reason ?? 'role removed'}`);
-    return { caseNumber, action: 'role_remove', userId: request.targetUser.id, dmDelivered: false, detail: role.name };
+    await request.targetMember.roles.remove(
+      role,
+      `${request.actor.user.tag}: ${request.reason ?? 'role removed'}`,
+    );
+    return {
+      caseNumber,
+      action: 'role_remove',
+      userId: request.targetUser.id,
+      dmDelivered: false,
+      detail: role.name,
+    };
   }
 
-  async setNickname(request: ModerationRequest & { nickname: string | null }): Promise<ModerationResult> {
-    requireUserPermissions(request.actor, [PermissionFlagsBits.ManageNicknames], 'managing nicknames');
+  async setNickname(
+    request: ModerationRequest & { nickname: string | null },
+  ): Promise<ModerationResult> {
+    requireUserPermissions(
+      request.actor,
+      [PermissionFlagsBits.ManageNicknames],
+      'managing nicknames',
+    );
     if (!request.targetMember) throw new UserFacingError('That member is not in this server.');
-    const me = requireBotPermissions(request.guild, [PermissionFlagsBits.ManageNicknames], 'managing nicknames');
+    const me = requireBotPermissions(
+      request.guild,
+      [PermissionFlagsBits.ManageNicknames],
+      'managing nicknames',
+    );
     assertCanModerate({
       guild: request.guild,
       actor: request.actor,
@@ -308,7 +396,10 @@ export class ModerationService {
       action: 'nickname',
     });
     const caseNumber = await this.createCase(request, 'nickname');
-    await request.targetMember.setNickname(request.nickname, `${request.actor.user.tag}: nickname change`);
+    await request.targetMember.setNickname(
+      request.nickname,
+      `${request.actor.user.tag}: nickname change`,
+    );
     return { caseNumber, action: 'nickname', userId: request.targetUser.id, dmDelivered: false };
   }
 
@@ -321,7 +412,10 @@ export class ModerationService {
     requireUserPermissions(actor, [PermissionFlagsBits.ManageChannels], 'managing channels');
     requireBotPermissions(guild, [PermissionFlagsBits.ManageChannels], 'setting slowmode');
     const channel = await guild.channels.fetch(channelId).catch(() => null);
-    if (!channel || (channel.type !== ChannelType.GuildText && channel.type !== ChannelType.GuildForum)) {
+    if (
+      !channel ||
+      (channel.type !== ChannelType.GuildText && channel.type !== ChannelType.GuildForum)
+    ) {
       throw new UserFacingError('Slowmode can only be set on text/forum channels.');
     }
     if (seconds < 0 || seconds > 21_600) {

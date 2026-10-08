@@ -137,5 +137,8 @@ export async function migrationStatus(
     'SELECT id, name, checksum, applied_at FROM schema_migrations ORDER BY id',
   );
   const appliedIds = new Set(rows.map((row) => row.id));
-  return { pending: migrations.filter((m) => !appliedIds.has(m.id)).map((m) => m.name), applied: rows };
+  return {
+    pending: migrations.filter((m) => !appliedIds.has(m.id)).map((m) => m.name),
+    applied: rows,
+  };
 }

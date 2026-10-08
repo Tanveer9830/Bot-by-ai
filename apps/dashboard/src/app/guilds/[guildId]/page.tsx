@@ -61,21 +61,31 @@ export default async function GuildPage({ params }: { params: Promise<{ guildId:
 
   const { repos } = getDatabase();
   const config = getConfig();
-  const [guild, overview, moderationByAction, moderationByDay, commandDays, topCommands, tickets, settings, customCommands, history] =
-    await Promise.all([
-      repos.guilds.getGuild(guildId),
-      repos.analytics.guildOverview(guildId),
-      repos.analytics.moderationByAction(guildId, 30),
-      repos.analytics.moderationByDay(guildId, 14),
-      repos.commandUsage.statsForGuild(guildId, 14),
-      repos.commandUsage.topCommands(guildId, 30, 10),
-      repos.tickets.stats(guildId),
-      repos.guilds.getAllModuleSettings(guildId),
-      repos.customCommands.listGuild(guildId),
-      repos.guilds
-        .getSettingsHistory(guildId, 10)
-        .catch(() => [] as Awaited<ReturnType<typeof repos.guilds.getSettingsHistory>>),
-    ]);
+  const [
+    guild,
+    overview,
+    moderationByAction,
+    moderationByDay,
+    commandDays,
+    topCommands,
+    tickets,
+    settings,
+    customCommands,
+    history,
+  ] = await Promise.all([
+    repos.guilds.getGuild(guildId),
+    repos.analytics.guildOverview(guildId),
+    repos.analytics.moderationByAction(guildId, 30),
+    repos.analytics.moderationByDay(guildId, 14),
+    repos.commandUsage.statsForGuild(guildId, 14),
+    repos.commandUsage.topCommands(guildId, 30, 10),
+    repos.tickets.stats(guildId),
+    repos.guilds.getAllModuleSettings(guildId),
+    repos.customCommands.listGuild(guildId),
+    repos.guilds
+      .getSettingsHistory(guildId, 10)
+      .catch(() => [] as Awaited<ReturnType<typeof repos.guilds.getSettingsHistory>>),
+  ]);
 
   const enabledModules = Object.keys(settings);
 
@@ -88,7 +98,9 @@ export default async function GuildPage({ params }: { params: Promise<{ guildId:
             {guild?.name ?? auth.value.guildName} <span className="badge">{guildId}</span>
           </h2>
           <p className="muted">
-            {guild ? `${guild.member_count} members recorded in the database` : 'This server has not been stored yet — the bot writes it on the next event.'}
+            {guild
+              ? `${guild.member_count} members recorded in the database`
+              : 'This server has not been stored yet — the bot writes it on the next event.'}
             {auth.value.verifiedFresh ? '' : ' · you are the server owner'}
           </p>
         </div>
@@ -96,16 +108,28 @@ export default async function GuildPage({ params }: { params: Promise<{ guildId:
         <div className="card">
           <h2>Overview (last 30 days)</h2>
           <div className="grid">
-            <Stat label="Moderation cases" value={overview.moderationCases30d} sub="30 day window" />
+            <Stat
+              label="Moderation cases"
+              value={overview.moderationCases30d}
+              sub="30 day window"
+            />
             <Stat label="Warnings" value={overview.warnings30d} sub="30 day window" />
             <Stat label="Security events" value={overview.securityEvents30d} sub="30 day window" />
-            <Stat label="Open tickets" value={overview.openTickets} sub={`${tickets.closed} closed · avg rating ${tickets.avgRating ?? 'unavailable'}`} />
+            <Stat
+              label="Open tickets"
+              value={overview.openTickets}
+              sub={`${tickets.closed} closed · avg rating ${tickets.avgRating ?? 'unavailable'}`}
+            />
             <Stat label="Active giveaways" value={overview.giveawaysActive} />
             <Stat label="Suggestions" value={overview.suggestions30d} sub="30 day window" />
             <Stat label="Economy accounts" value={overview.economyAccounts} />
             <Stat label="Members with XP" value={overview.levelsTracked} />
             <Stat label="Users tracked (all guilds)" value={overview.trackedUsers} />
-            <Stat label="Configured modules" value={enabledModules.length} sub={enabledModules.join(', ') || 'none yet'} />
+            <Stat
+              label="Configured modules"
+              value={enabledModules.length}
+              sub={enabledModules.join(', ') || 'none yet'}
+            />
             <Stat label="Custom commands" value={customCommands.length} />
           </div>
         </div>
@@ -179,7 +203,9 @@ export default async function GuildPage({ params }: { params: Promise<{ guildId:
         <div className="card">
           <h2>Most used commands (30 days)</h2>
           {topCommands.length === 0 ? (
-            <p className="muted">Unavailable — command usage is recorded per invocation by the bot.</p>
+            <p className="muted">
+              Unavailable — command usage is recorded per invocation by the bot.
+            </p>
           ) : (
             <table>
               <thead>
@@ -208,7 +234,8 @@ export default async function GuildPage({ params }: { params: Promise<{ guildId:
           <h2>Server custom commands</h2>
           {customCommands.length === 0 ? (
             <p className="muted">
-              None yet. Server commands are created in Discord with <code>/customcommand create</code>.
+              None yet. Server commands are created in Discord with{' '}
+              <code>/customcommand create</code>.
             </p>
           ) : (
             <table>
@@ -267,15 +294,18 @@ export default async function GuildPage({ params }: { params: Promise<{ guildId:
         <div className="card">
           <h2>Runtime features</h2>
           <p>
-            Music: <span className="badge">{config.music.enabled ? 'enabled' : 'disabled'}</span> · Lavalink:{' '}
-            <span className="badge">{config.music.lavalink ? 'configured' : 'not configured'}</span> · Spotify metadata:{' '}
-            <span className="badge">{config.music.spotify ? 'configured' : 'not configured'}</span> · Redis:{' '}
-            <span className="badge">{config.redisUrl ? 'configured' : 'not configured'}</span> · Metrics:{' '}
-            <span className="badge">{config.metricsEnabled ? 'on' : 'off'}</span>
+            Music: <span className="badge">{config.music.enabled ? 'enabled' : 'disabled'}</span> ·
+            Lavalink:{' '}
+            <span className="badge">{config.music.lavalink ? 'configured' : 'not configured'}</span>{' '}
+            · Spotify metadata:{' '}
+            <span className="badge">{config.music.spotify ? 'configured' : 'not configured'}</span>{' '}
+            · Redis:{' '}
+            <span className="badge">{config.redisUrl ? 'configured' : 'not configured'}</span> ·
+            Metrics: <span className="badge">{config.metricsEnabled ? 'on' : 'off'}</span>
           </p>
           <p className="muted">
-            Active music players per guild are held in the bot process and are not exposed by the database, so this
-            page shows configuration, not a player snapshot.
+            Active music players per guild are held in the bot process and are not exposed by the
+            database, so this page shows configuration, not a player snapshot.
           </p>
         </div>
       </main>

@@ -103,7 +103,10 @@ async function bootstrap(): Promise<void> {
     try {
       music = new MusicService(config, client, settings, logger);
     } catch (error) {
-      logger.error('music subsystem failed to initialise; continuing without music', errorForLog(error));
+      logger.error(
+        'music subsystem failed to initialise; continuing without music',
+        errorForLog(error),
+      );
       music = null;
     }
   }
@@ -210,7 +213,10 @@ async function bootstrap(): Promise<void> {
     await status.heartbeat(registry.size);
     if (music) {
       await music.connect().catch((error) => {
-        logger.error('lavalink connection failed; music commands will report unavailable', errorForLog(error));
+        logger.error(
+          'lavalink connection failed; music commands will report unavailable',
+          errorForLog(error),
+        );
       });
     }
   });

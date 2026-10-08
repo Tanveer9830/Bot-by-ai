@@ -30,10 +30,14 @@ export async function resolveTarget(
   const member = interaction.options.getMember(optionName) as GuildMember | null;
   const user =
     interaction.options.getUser(optionName) ??
-    (await interaction.client.users.fetch(interaction.options.getUser(optionName)?.id ?? '').catch(() => null));
+    (await interaction.client.users
+      .fetch(interaction.options.getUser(optionName)?.id ?? '')
+      .catch(() => null));
   if (member) return { member, user: member.user, id: member.id };
   if (user) return { member: null, user, id: user.id };
-  throw new UserFacingError('I could not resolve that user. Provide an ID or mention if they left the server.');
+  throw new UserFacingError(
+    'I could not resolve that user. Provide an ID or mention if they left the server.',
+  );
 }
 
 function highestRolePosition(member: GuildMember | null, guild: Guild): number {
@@ -81,11 +85,14 @@ export function assertCanModerate(options: {
     guildOwnerId: guild.ownerId,
   });
   if (!decision.allowed) {
-    throw new PermissionError(decision.reason ?? `You cannot use ${options.action} on that member.`, {
-      action: options.action,
-      targetId,
-      code: decision.code,
-    });
+    throw new PermissionError(
+      decision.reason ?? `You cannot use ${options.action} on that member.`,
+      {
+        action: options.action,
+        targetId,
+        code: decision.code,
+      },
+    );
   }
 }
 
@@ -98,7 +105,9 @@ export function requireUserPermissions(
   if (!member) throw new PermissionError('This command can only be used inside a server.');
   const missing = required.filter((permission) => !member.permissions.has(permission));
   if (missing.length > 0) {
-    const names = missing.map((permission) => new PermissionsBitField(permission).toArray().join('/'));
+    const names = missing.map((permission) =>
+      new PermissionsBitField(permission).toArray().join('/'),
+    );
     throw new PermissionError(`You need the ${names.join(', ')} permission to use ${context}.`, {
       missing: names,
     });
@@ -115,7 +124,9 @@ export function requireBotPermissions(
   if (!me) return null;
   const missing = required.filter((permission) => !me.permissions.has(permission));
   if (missing.length > 0) {
-    const names = missing.map((permission) => new PermissionsBitField(permission).toArray().join('/'));
+    const names = missing.map((permission) =>
+      new PermissionsBitField(permission).toArray().join('/'),
+    );
     throw new PermissionError(
       `I am missing the ${names.join(', ')} permission needed for ${context}. Grant it in Server Settings → Roles.`,
       { missing: names },
@@ -150,7 +161,8 @@ export async function replyWithError(
       command: interaction.commandName,
       guildId: interaction.guildId,
       userId: interaction.user.id,
-      error: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : String(error),
+      error:
+        error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : String(error),
     });
     if (interaction.guild) {
       await services.logging

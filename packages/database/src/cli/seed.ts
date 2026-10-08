@@ -9,12 +9,48 @@
 import { createDatabase, createRepositories } from '../index.js';
 
 const GLOBAL_ACHIEVEMENTS = [
-  { key: 'first_message', name: 'First Words', description: 'Send your first tracked message', reward: 50, requirement: { type: 'messages', value: 1 } },
-  { key: 'chatterbox', name: 'Chatterbox', description: 'Send 1,000 messages', reward: 500, requirement: { type: 'messages', value: 1000 } },
-  { key: 'level_10', name: 'Rising Star', description: 'Reach level 10', reward: 250, requirement: { type: 'level', value: 10 } },
-  { key: 'level_50', name: 'Veteran', description: 'Reach level 50', reward: 2500, requirement: { type: 'level', value: 50 } },
-  { key: 'rich', name: 'Well Off', description: 'Hold 10,000 in your wallet', reward: 0, requirement: { type: 'wallet', value: 10000 } },
-  { key: 'helper', name: 'Helper', description: 'Have 10 suggestions accepted', reward: 300, requirement: { type: 'suggestions_accepted', value: 10 } },
+  {
+    key: 'first_message',
+    name: 'First Words',
+    description: 'Send your first tracked message',
+    reward: 50,
+    requirement: { type: 'messages', value: 1 },
+  },
+  {
+    key: 'chatterbox',
+    name: 'Chatterbox',
+    description: 'Send 1,000 messages',
+    reward: 500,
+    requirement: { type: 'messages', value: 1000 },
+  },
+  {
+    key: 'level_10',
+    name: 'Rising Star',
+    description: 'Reach level 10',
+    reward: 250,
+    requirement: { type: 'level', value: 10 },
+  },
+  {
+    key: 'level_50',
+    name: 'Veteran',
+    description: 'Reach level 50',
+    reward: 2500,
+    requirement: { type: 'level', value: 50 },
+  },
+  {
+    key: 'rich',
+    name: 'Well Off',
+    description: 'Hold 10,000 in your wallet',
+    reward: 0,
+    requirement: { type: 'wallet', value: 10000 },
+  },
+  {
+    key: 'helper',
+    name: 'Helper',
+    description: 'Have 10 suggestions accepted',
+    reward: 300,
+    requirement: { type: 'suggestions_accepted', value: 10 },
+  },
 ];
 
 async function main(): Promise<void> {

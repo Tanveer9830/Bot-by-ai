@@ -11,8 +11,7 @@ import { assertSameOrigin, getSession, getOwners, jsonError, type SessionUser } 
 import { checkGuildAccess } from './discord';
 
 export type AuthorizedResult =
-  | { ok: true; session: SessionUser }
-  | { ok: false; response: Response };
+  { ok: true; session: SessionUser } | { ok: false; response: Response };
 
 export async function requireSession(): Promise<AuthorizedResult> {
   const session = await getSession();
@@ -30,7 +29,10 @@ export async function requireOwner(): Promise<AuthorizedResult> {
     // Deliberately identical message for "not signed in" vs "signed in but not
     // an owner" is NOT used here: the caller is authenticated, so a precise
     // message is more useful and leaks nothing (the owner list is not secret).
-    return { ok: false, response: jsonError(403, 'This area is restricted to configured bot owners.') };
+    return {
+      ok: false,
+      response: jsonError(403, 'This area is restricted to configured bot owners.'),
+    };
   }
   return result;
 }
@@ -71,7 +73,11 @@ export async function requireGuildAccess(
     }
     return {
       ok: true,
-      value: { session, guildName: check.guildName ?? guildId, verifiedFresh: !check.isOwnerOfGuild },
+      value: {
+        session,
+        guildName: check.guildName ?? guildId,
+        verifiedFresh: !check.isOwnerOfGuild,
+      },
     };
   }
 

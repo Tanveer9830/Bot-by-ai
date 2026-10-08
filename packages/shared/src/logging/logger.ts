@@ -62,8 +62,9 @@ export function redactString(input: string): string {
   // Generic Discord bot token / bearer token shapes.
   output = output.replace(/\b[\w-]{20,}\.[\w-]{5,}\.[\w-]{20,}\b/g, '[redacted-token]');
   output = output.replace(/(Bearer\s+)[A-Za-z0-9._-]{10,}/gi, '$1[redacted]');
-  const escaped = output.replace(/[\u0000-\u001f\u007f]/g, (char) =>
-    `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  const escaped = output.replace(
+    /[\u0000-\u001f\u007f]/g,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
   );
   return escaped;
 }
@@ -76,7 +77,11 @@ export function redactValue(value: unknown, depth = 0): unknown {
     return value;
   }
   if (value instanceof Error) {
-    return { name: value.name, message: redactString(value.message), stack: redactString(value.stack ?? '') };
+    return {
+      name: value.name,
+      message: redactString(value.message),
+      stack: redactString(value.stack ?? ''),
+    };
   }
   if (Array.isArray(value)) return value.slice(0, 50).map((item) => redactValue(item, depth + 1));
   if (typeof value === 'object') {
@@ -117,7 +122,12 @@ export function createLogger(options: LoggerOptions = {}): Logger {
       ...(redactValue({ ...bindings, ...context }) as Record<string, unknown>),
     };
     if (pretty) {
-      const { time, level: lvl, msg, ...rest } = payload as Record<string, unknown> & {
+      const {
+        time,
+        level: lvl,
+        msg,
+        ...rest
+      } = payload as Record<string, unknown> & {
         time: string;
         level: string;
         msg: string;

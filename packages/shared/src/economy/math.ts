@@ -47,7 +47,10 @@ export function computeDailyReward(options: {
   const safeStreak = Math.max(0, Math.floor(streak));
   const multiplier = Math.min(1 + (bonusPercent / 100) * safeStreak, maxMultiplier);
   const amount = Math.floor(safeBase * multiplier);
-  return { amount: Math.min(amount, MAX_CURRENCY_AMOUNT), multiplier: Number(multiplier.toFixed(4)) };
+  return {
+    amount: Math.min(amount, MAX_CURRENCY_AMOUNT),
+    multiplier: Number(multiplier.toFixed(4)),
+  };
 }
 
 /** Work cooldown rewards scale with level so progression stays meaningful. */
@@ -90,7 +93,12 @@ export function nextStreak(options: {
   const grace = options.graceMs ?? 0;
   const current = Math.max(0, options.currentStreak ?? 0);
   if (options.lastClaimAt === null) {
-    return { streak: 1, reset: false, claimable: true, nextClaimAt: options.now + options.periodMs };
+    return {
+      streak: 1,
+      reset: false,
+      claimable: true,
+      nextClaimAt: options.now + options.periodMs,
+    };
   }
   const elapsed = options.now - options.lastClaimAt;
   if (elapsed < options.periodMs) {

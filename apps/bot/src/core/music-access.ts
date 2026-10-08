@@ -35,11 +35,18 @@ export async function checkMusicAccess(
   guild: Guild,
   member: GuildMember,
 ): Promise<MusicAccess> {
-  const settings = await services.settings.get<{ djOnly: boolean; djRoleIds: string[] }>(guild.id, 'music');
+  const settings = await services.settings.get<{ djOnly: boolean; djRoleIds: string[] }>(
+    guild.id,
+    'music',
+  );
   const isManager = member.permissions.has(PermissionFlagsBits.ManageGuild);
   if (settings.djOnly && settings.djRoleIds.length > 0 && !isManager) {
     const isDj = settings.djRoleIds.some((roleId) => member.roles.cache.has(roleId));
-    if (!isDj) return { allowed: false, reason: 'Only members with a DJ role can control music in this server.' };
+    if (!isDj)
+      return {
+        allowed: false,
+        reason: 'Only members with a DJ role can control music in this server.',
+      };
   }
   const botChannel = guild.members.me?.voice.channelId;
   if (botChannel && member.voice.channelId !== botChannel && !isManager) {

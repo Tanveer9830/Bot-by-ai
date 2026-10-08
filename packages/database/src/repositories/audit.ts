@@ -104,7 +104,10 @@ export class AuditRepository {
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset],
     );
-    return { rows: rows as never, total: Number((rows[0] as { total?: number } | undefined)?.total ?? 0) };
+    return {
+      rows: rows as never,
+      total: Number((rows[0] as { total?: number } | undefined)?.total ?? 0),
+    };
   }
 
   /** Retention cleanup used by the scheduled task worker. */
@@ -143,9 +146,10 @@ export class CommandUsageRepository {
     );
   }
 
-  async statsForGuild(guildId: string, days = 30): Promise<
-    { day: string; total: number; failed: number }[]
-  > {
+  async statsForGuild(
+    guildId: string,
+    days = 30,
+  ): Promise<{ day: string; total: number; failed: number }[]> {
     const { rows } = await this.db.query<{ day: string; total: number; failed: number }>(
       `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
               count(*)::int AS total,
@@ -158,7 +162,11 @@ export class CommandUsageRepository {
     return rows;
   }
 
-  async topCommands(guildId: string, days = 30, limit = 10): Promise<{ command_name: string; uses: number }[]> {
+  async topCommands(
+    guildId: string,
+    days = 30,
+    limit = 10,
+  ): Promise<{ command_name: string; uses: number }[]> {
     const { rows } = await this.db.query<{ command_name: string; uses: number }>(
       `SELECT command_name, count(*)::int AS uses FROM command_usage
         WHERE guild_id = $1 AND created_at > now() - ($2::int * interval '1 day')

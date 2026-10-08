@@ -66,7 +66,10 @@ export function createRepositories(db: Database): Repositories {
   };
 }
 
-export function openDatabase(options: DatabaseOptions): { db: Database; repositories: Repositories } {
+export function openDatabase(options: DatabaseOptions): {
+  db: Database;
+  repositories: Repositories;
+} {
   const db = createDatabase(options);
   return { db, repositories: createRepositories(db) };
 }

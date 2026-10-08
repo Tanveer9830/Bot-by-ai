@@ -208,7 +208,8 @@ export function evaluateAutomodMessage(
   } else if (rules.suspiciousDomains.length > 0) {
     const suspicious = extractDomains(content).filter(
       (domain) =>
-        !domainAllowed(domain, rules.allowedDomains) && domainAllowed(domain, rules.suspiciousDomains),
+        !domainAllowed(domain, rules.allowedDomains) &&
+        domainAllowed(domain, rules.suspiciousDomains),
     );
     if (suspicious.length > 0) {
       violations.push({

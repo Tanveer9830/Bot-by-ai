@@ -121,7 +121,10 @@ export class StatusService {
         shard_id: this.client.shard?.ids?.[0] ?? 0,
         status: this.ready ? 'online' : 'starting',
         guild_count: this.client.guilds.cache.size,
-        user_count: this.client.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount ?? 0), 0),
+        user_count: this.client.guilds.cache.reduce(
+          (acc, guild) => acc + (guild.memberCount ?? 0),
+          0,
+        ),
         command_count: commandCount,
         ws_ping_ms: Number.isFinite(this.client.ws.ping) ? Math.round(this.client.ws.ping) : null,
         uptime_seconds: Math.floor(process.uptime()),

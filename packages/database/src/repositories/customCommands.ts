@@ -159,7 +159,9 @@ export class CustomCommandRepository {
   }
 
   /** Names are pre-loaded so slash commands can be registered from the DB. */
-  async listNamesForRegistration(): Promise<{ name: string; description: string; scope: 'global' | 'guild'; guild_id: string | null }[]> {
+  async listNamesForRegistration(): Promise<
+    { name: string; description: string; scope: 'global' | 'guild'; guild_id: string | null }[]
+  > {
     const { rows } = await this.db.query<{
       name: string;
       description: string;

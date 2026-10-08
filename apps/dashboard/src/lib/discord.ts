@@ -106,11 +106,15 @@ export function canManage(permissions: string | bigint): boolean {
 }
 
 export function avatarUrl(user: { id: string; avatar: string | null }, size = 128): string {
-  if (!user.avatar) return `${DISCORD_API.replace('/api/v10', '')}/embed/avatars/${Number(BigInt(user.id) % 5n)}.png`;
+  if (!user.avatar)
+    return `${DISCORD_API.replace('/api/v10', '')}/embed/avatars/${Number(BigInt(user.id) % 5n)}.png`;
   return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=${size}`;
 }
 
-export function guildIconUrl(guild: { id: string; icon: string | null }, size = 128): string | null {
+export function guildIconUrl(
+  guild: { id: string; icon: string | null },
+  size = 128,
+): string | null {
   if (!guild.icon) return null;
   return `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=${size}`;
 }
@@ -148,7 +152,10 @@ export async function checkGuildAccess(
     return { ok: false, reason: 'The bot is not in that server, so no data is available.' };
   }
   if (!guildResponse.ok) {
-    return { ok: false, reason: `Discord returned HTTP ${guildResponse.status} while checking the server.` };
+    return {
+      ok: false,
+      reason: `Discord returned HTTP ${guildResponse.status} while checking the server.`,
+    };
   }
   const guild = (await guildResponse.json()) as BotGuild;
 
@@ -164,7 +171,10 @@ export async function checkGuildAccess(
     return { ok: false, reason: 'You are not a member of that server.' };
   }
   if (!memberResponse.ok) {
-    return { ok: false, reason: `Discord returned HTTP ${memberResponse.status} while checking your membership.` };
+    return {
+      ok: false,
+      reason: `Discord returned HTTP ${memberResponse.status} while checking your membership.`,
+    };
   }
   const member = (await memberResponse.json()) as BotGuildMember;
 
@@ -185,7 +195,10 @@ export async function checkGuildAccess(
     }
   }
   if (!canManage(permissions)) {
-    return { ok: false, reason: 'You need the Manage Server permission to use the dashboard for this server.' };
+    return {
+      ok: false,
+      reason: 'You need the Manage Server permission to use the dashboard for this server.',
+    };
   }
   return { ok: true, guildName: guild.name, isOwnerOfGuild: false };
 }

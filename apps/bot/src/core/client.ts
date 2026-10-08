@@ -22,14 +22,23 @@ export function createBotClient(config: AppConfig): Client {
       GatewayIntentBits.GuildEmojisAndStickers,
       GatewayIntentBits.DirectMessages,
     ],
-    partials: [Partials.Channel, Partials.Message, Partials.GuildMember, Partials.Reaction, Partials.User],
+    partials: [
+      Partials.Channel,
+      Partials.Message,
+      Partials.GuildMember,
+      Partials.Reaction,
+      Partials.User,
+    ],
     allowedMentions: { parse: ['users', 'roles'], repliedUser: false },
     makeCache: Options.cacheWithLimits({
       ...Options.DefaultMakeCacheSettings,
       // Bound caches so a 100k-member guild cannot exhaust memory.
       MessageManager: 100,
       PresenceManager: 0,
-      GuildMemberManager: { maxSize: 5_000, keepOverLimit: (member) => member.id === member.client.user?.id },
+      GuildMemberManager: {
+        maxSize: 5_000,
+        keepOverLimit: (member) => member.id === member.client.user?.id,
+      },
       GuildInviteManager: 0,
       GuildStickerManager: 50,
       GuildScheduledEventManager: 20,
@@ -39,7 +48,10 @@ export function createBotClient(config: AppConfig): Client {
     sweepers: {
       ...Options.DefaultSweeperSettings,
       messages: { interval: 600, lifetime: 1_800 },
-      users: { interval: 3_600, filter: () => (user) => user.bot && user.id !== user.client.user?.id },
+      users: {
+        interval: 3_600,
+        filter: () => (user) => user.bot && user.id !== user.client.user?.id,
+      },
       guildMembers: {
         interval: 3_600,
         filter: () => (member) => member.id !== member.client.user?.id && !member.voice.channelId,

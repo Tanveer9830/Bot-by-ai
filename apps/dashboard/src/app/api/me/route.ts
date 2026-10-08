@@ -19,7 +19,10 @@ export async function GET(): Promise<Response> {
       id: session.userId,
       username: session.username,
       globalName: session.globalName,
-      avatarUrl: session.avatar !== null || session.username ? avatarUrl({ id: session.userId, avatar: session.avatar }) : null,
+      avatarUrl:
+        session.avatar !== null || session.username
+          ? avatarUrl({ id: session.userId, avatar: session.avatar })
+          : null,
       isOwner: session.isOwner,
       expiresAt: session.expiresAt.toISOString(),
     },

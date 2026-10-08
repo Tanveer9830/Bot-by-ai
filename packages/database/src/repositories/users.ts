@@ -54,7 +54,9 @@ export class UserRepository {
   }
 
   async countUsers(): Promise<number> {
-    const { rows } = await this.db.query<{ count: string }>('SELECT count(*)::text AS count FROM users');
+    const { rows } = await this.db.query<{ count: string }>(
+      'SELECT count(*)::text AS count FROM users',
+    );
     return Number(rows[0]?.count ?? 0);
   }
 }

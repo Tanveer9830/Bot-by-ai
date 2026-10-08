@@ -36,7 +36,10 @@ export class ValidationError extends AppError {
 }
 
 export class PermissionError extends AppError {
-  constructor(userMessage = 'You do not have permission to use this command.', meta: Record<string, unknown> = {}) {
+  constructor(
+    userMessage = 'You do not have permission to use this command.',
+    meta: Record<string, unknown> = {},
+  ) {
     super('PERMISSION_DENIED', userMessage, { meta, expected: true });
     this.name = 'PermissionError';
   }
@@ -60,7 +63,10 @@ export class NotFoundError extends AppError {
 }
 
 export class CooldownError extends AppError {
-  constructor(public readonly retryAfterMs: number, meta: Record<string, unknown> = {}) {
+  constructor(
+    public readonly retryAfterMs: number,
+    meta: Record<string, unknown> = {},
+  ) {
     super('COOLDOWN', `Please wait ${(retryAfterMs / 1000).toFixed(1)}s before using this again.`, {
       meta: { ...meta, retryAfterMs },
       expected: true,

@@ -104,7 +104,8 @@ export interface HierarchyInput {
 export interface HierarchyDecision {
   allowed: boolean;
   reason?: string;
-  code?: 'SELF_TARGET' | 'TARGET_IS_ACTOR_SUPERIOR' | 'BOT_HIERARCHY' | 'GUILD_OWNER' | 'TARGET_IS_BOT';
+  code?:
+    'SELF_TARGET' | 'TARGET_IS_ACTOR_SUPERIOR' | 'BOT_HIERARCHY' | 'GUILD_OWNER' | 'TARGET_IS_BOT';
 }
 
 /**
@@ -115,12 +116,20 @@ export function checkModerationHierarchy(input: HierarchyInput): HierarchyDecisi
   const { actor, target, bot } = input;
 
   if (actor.id === target.id) {
-    return { allowed: false, code: 'SELF_TARGET', reason: 'You cannot perform this action on yourself.' };
+    return {
+      allowed: false,
+      code: 'SELF_TARGET',
+      reason: 'You cannot perform this action on yourself.',
+    };
   }
 
   if (bot) {
     if (bot.id === target.id) {
-      return { allowed: false, code: 'TARGET_IS_BOT', reason: 'I cannot perform this action on myself.' };
+      return {
+        allowed: false,
+        code: 'TARGET_IS_BOT',
+        reason: 'I cannot perform this action on myself.',
+      };
     }
     // A bot can never act on a member whose top role is >= its own top role.
     if (!bot.isGuildOwner && target.highestRolePosition >= bot.highestRolePosition) {
@@ -137,7 +146,11 @@ export function checkModerationHierarchy(input: HierarchyInput): HierarchyDecisi
   if (actor.isGuildOwner) return { allowed: true };
 
   if (target.isGuildOwner) {
-    return { allowed: false, code: 'GUILD_OWNER', reason: 'The server owner cannot be moderated by the bot.' };
+    return {
+      allowed: false,
+      code: 'GUILD_OWNER',
+      reason: 'The server owner cannot be moderated by the bot.',
+    };
   }
 
   if (target.highestRolePosition >= actor.highestRolePosition) {
@@ -154,7 +167,11 @@ export function checkModerationHierarchy(input: HierarchyInput): HierarchyDecisi
 /** A target is "protected" when it is a role/id in the trusted or exempt list. */
 export function isTrustedOrExempt(
   id: string,
-  exempt: { userIds?: readonly string[]; roleIds?: readonly string[]; memberRoleIds?: readonly string[] },
+  exempt: {
+    userIds?: readonly string[];
+    roleIds?: readonly string[];
+    memberRoleIds?: readonly string[];
+  },
 ): boolean {
   if (exempt.userIds?.includes(id)) return true;
   if (exempt.roleIds && exempt.memberRoleIds) {

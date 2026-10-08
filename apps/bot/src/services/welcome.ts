@@ -1,4 +1,11 @@
-import { AttachmentBuilder, ChannelType, PermissionFlagsBits, type Guild, type GuildMember, type TextChannel } from 'discord.js';
+import {
+  AttachmentBuilder,
+  ChannelType,
+  PermissionFlagsBits,
+  type Guild,
+  type GuildMember,
+  type TextChannel,
+} from 'discord.js';
 import type { Logger } from '@bot-by-ai/shared';
 import { accountAgeDays, renderTemplate } from '@bot-by-ai/shared';
 import type { GuildSettingsService } from './settings.js';
@@ -37,7 +44,11 @@ export class WelcomeService {
    * `options.test` is used by `/welcome test`: it sends the message even when
    * the module is disabled and skips auto-roles / audit logging.
    */
-  async handleJoin(guild: Guild, member: GuildMember, options: { test?: boolean } = {}): Promise<void> {
+  async handleJoin(
+    guild: Guild,
+    member: GuildMember,
+    options: { test?: boolean } = {},
+  ): Promise<void> {
     const settings = await this.getWelcomeSettings(guild.id);
     if (!settings.enabled && !options.test) return;
     const accountAge = accountAgeDays(member.id);
@@ -49,7 +60,8 @@ export class WelcomeService {
       guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)
     ) {
       for (const roleId of settings.autoRoleIds) {
-        const role = guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
+        const role =
+          guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
         const me = guild.members.me;
         if (role && me && role.position < me.roles.highest.position) {
           await member.roles.add(role, 'Automatic role on join').catch((error) =>
@@ -73,7 +85,10 @@ export class WelcomeService {
         const embed = baseEmbed(settings.embedColor)
           .setTitle(settings.title ?? null)
           .setDescription(text)
-          .setAuthor({ name: `Welcome to ${guild.name}`, iconURL: member.displayAvatarURL({ size: 256 }) })
+          .setAuthor({
+            name: `Welcome to ${guild.name}`,
+            iconURL: member.displayAvatarURL({ size: 256 }),
+          })
           .setThumbnail(settings.thumbnail ? member.displayAvatarURL({ size: 128 }) : null)
           .addFields(
             { name: 'Account age', value: `${accountAge.toFixed(1)} days`, inline: true },
@@ -116,24 +131,33 @@ export class WelcomeService {
       .catch(() => {});
   }
 
-  async handleLeave(guild: Guild, member: GuildMember, options: { test?: boolean } = {}): Promise<void> {
+  async handleLeave(
+    guild: Guild,
+    member: GuildMember,
+    options: { test?: boolean } = {},
+  ): Promise<void> {
     const settings = await this.getLeaveSettings(guild.id);
     if (!options.test) {
       await this.logging
-      .log(guild, {
-        category: 'members',
-        title: 'Member left',
-        description: `**${member.user.tag}** (\`${member.id}\`) left the server.`,
-        actorId: member.id,
-        auditAction: 'members.leave',
-      })
+        .log(guild, {
+          category: 'members',
+          title: 'Member left',
+          description: `**${member.user.tag}** (\`${member.id}\`) left the server.`,
+          actorId: member.id,
+          auditAction: 'members.leave',
+        })
         .catch(() => {});
     }
     if ((!settings.enabled && !options.test) || !settings.channelId) return;
     const channel = await guild.channels.fetch(settings.channelId).catch(() => null);
     if (!channel?.isTextBased()) return;
     const text = renderTemplate(settings.message, {
-      user: { id: member.id, username: member.user.username, tag: member.user.tag, mention: `<@${member.id}>` },
+      user: {
+        id: member.id,
+        username: member.user.username,
+        tag: member.user.tag,
+        mention: `<@${member.id}>`,
+      },
       server: { name: guild.name, id: guild.id, memberCount: guild.memberCount },
     }).output;
     await channel
@@ -168,26 +192,39 @@ export class WelcomeService {
   }
 
   /** Grants one role at a time, reporting whether it actually happened. */
-  async grantRoleToMember(guild: Guild, member: GuildMember, roleId: string, reason: string): Promise<boolean> {
+  async grantRoleToMember(
+    guild: Guild,
+    member: GuildMember,
+    roleId: string,
+    reason: string,
+  ): Promise<boolean> {
     const me = guild.members.me;
     if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) return false;
-    const role = guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
+    const role =
+      guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
     if (!role || role.position >= me.roles.highest.position) return false;
     if (member.roles.cache.has(role.id)) return true;
-    return member.roles.add(role, reason).then(() => true).catch(() => false);
+    return member.roles
+      .add(role, reason)
+      .then(() => true)
+      .catch(() => false);
   }
 
   /** Backfills a role to every member that is missing it. Returns the count granted. */
   async grantRoleToEveryone(guild: Guild, roleId: string): Promise<number> {
     const me = guild.members.me;
     if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) return 0;
-    const role = guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
+    const role =
+      guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
     if (!role || role.position >= me.roles.highest.position) return 0;
     await guild.members.fetch();
     let granted = 0;
     for (const member of guild.members.cache.values()) {
       if (member.user.bot || member.roles.cache.has(role.id)) continue;
-      const ok = await member.roles.add(role, 'Autorole backfill').then(() => true).catch(() => false);
+      const ok = await member.roles
+        .add(role, 'Autorole backfill')
+        .then(() => true)
+        .catch(() => false);
       if (ok) granted += 1;
     }
     return granted;
@@ -208,14 +245,22 @@ export class WelcomeService {
   }
 
   /** Verification: grants the configured role after the user clicks the button. */
-  async grantVerificationRole(guild: Guild, member: GuildMember, roleIds: string[]): Promise<number> {
+  async grantVerificationRole(
+    guild: Guild,
+    member: GuildMember,
+    roleIds: string[],
+  ): Promise<number> {
     const me = guild.members.me;
     if (!me?.permissions.has(PermissionFlagsBits.ManageRoles)) return 0;
     let granted = 0;
     for (const roleId of roleIds) {
-      const role = guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
+      const role =
+        guild.roles.cache.get(roleId) ?? (await guild.roles.fetch(roleId).catch(() => null));
       if (role && role.position < me.roles.highest.position && !member.roles.cache.has(role.id)) {
-        const ok = await member.roles.add(role, 'Verification completed').then(() => true).catch(() => false);
+        const ok = await member.roles
+          .add(role, 'Verification completed')
+          .then(() => true)
+          .catch(() => false);
         if (ok) granted += 1;
       }
     }

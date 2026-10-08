@@ -63,7 +63,10 @@ export async function PATCH(
 
   const validated = validateModuleSettings(module, values as Record<string, unknown>);
   if (!validated.ok) {
-    return Response.json({ ok: false, error: 'Validation failed.', issues: validated.errors }, { status: 422 });
+    return Response.json(
+      { ok: false, error: 'Validation failed.', issues: validated.errors },
+      { status: 422 },
+    );
   }
 
   const { repos } = getDatabase();

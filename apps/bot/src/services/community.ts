@@ -1,10 +1,27 @@
-import { ChannelType, PermissionFlagsBits, type Guild, type GuildMember, type Message } from 'discord.js';
+import {
+  ChannelType,
+  PermissionFlagsBits,
+  type Guild,
+  type GuildMember,
+  type Message,
+} from 'discord.js';
 import type { Logger } from '@bot-by-ai/shared';
-import { formatRelativeTimestamp, formatTimestamp, secureRandomInt, shuffle, UserFacingError } from '@bot-by-ai/shared';
+import {
+  formatRelativeTimestamp,
+  formatTimestamp,
+  secureRandomInt,
+  shuffle,
+  UserFacingError,
+} from '@bot-by-ai/shared';
 import type { Repositories } from '@bot-by-ai/database';
 import type { GuildSettingsService } from './settings.js';
 import type { LoggingService } from './logging.js';
-import type { BirthdaySettings, GiveawaySettings, StarboardSettings, SuggestionSettings } from './types.js';
+import type {
+  BirthdaySettings,
+  GiveawaySettings,
+  StarboardSettings,
+  SuggestionSettings,
+} from './types.js';
 import { baseEmbed, successEmbed, warningEmbed } from '../core/embeds.js';
 import { COLORS, INTERACTION_PREFIXES } from '../core/constants.js';
 
@@ -38,9 +55,12 @@ export class CommunityService {
     if (!channel || !channel.isTextBased() || channel.type === ChannelType.GuildVoice) {
       throw new UserFacingError('I cannot post a giveaway in that channel.');
     }
-    if (input.durationMs < 60_000) throw new UserFacingError('Giveaways must run for at least 1 minute.');
+    if (input.durationMs < 60_000)
+      throw new UserFacingError('Giveaways must run for at least 1 minute.');
     if (input.winners > settings.maxWinners) {
-      throw new UserFacingError(`This server allows at most ${settings.maxWinners} winners per giveaway.`);
+      throw new UserFacingError(
+        `This server allows at most ${settings.maxWinners} winners per giveaway.`,
+      );
     }
     const endsAt = new Date(Date.now() + input.durationMs);
     const giveaway = await this.repos.community.createGiveaway({
@@ -101,12 +121,19 @@ export class CommunityService {
   }> {
     const giveaway = await this.repos.community.getGiveaway(input.giveawayId);
     if (!giveaway) throw new UserFacingError('That giveaway no longer exists.');
-    if (giveaway.ended || giveaway.cancelled) throw new UserFacingError('That giveaway has already ended.');
+    if (giveaway.ended || giveaway.cancelled)
+      throw new UserFacingError('That giveaway has already ended.');
     if (giveaway.required_role_id && !input.member.roles.cache.has(giveaway.required_role_id)) {
-      return { ok: false, reason: `You need the <@&${giveaway.required_role_id}> role to enter.`, entries: 0 };
+      return {
+        ok: false,
+        reason: `You need the <@&${giveaway.required_role_id}> role to enter.`,
+        entries: 0,
+      };
     }
     const settings = await this.getGiveawaySettings(input.guild.id);
-    const bonusRolesHeld = input.member.roles.cache.filter((role) => settings.bonusRoleIds.includes(role.id)).size;
+    const bonusRolesHeld = input.member.roles.cache.filter((role) =>
+      settings.bonusRoleIds.includes(role.id),
+    ).size;
     const result = await this.repos.community.enterGiveaway({
       giveawayId: input.giveawayId,
       userId: input.member.id,
@@ -163,7 +190,9 @@ export class CommunityService {
       for (const winner of winners) {
         const member = await input.guild.members.fetch(winner).catch(() => null);
         await member
-          ?.send(`You won **${giveaway.prize}** in **${input.guild.name}**! Contact the host to claim your prize.`)
+          ?.send(
+            `You won **${giveaway.prize}** in **${input.guild.name}**! Contact the host to claim your prize.`,
+          )
           .catch(() => {});
       }
     }
@@ -190,10 +219,13 @@ export class CommunityService {
   }): Promise<{ id: number; messageId: string | null }> {
     const settings = await this.settings.get<SuggestionSettings>(input.guild.id, 'suggestions');
     if (!settings.enabled || !settings.channelId) {
-      throw new UserFacingError('Suggestions are not configured in this server (use `/suggestion setup`).');
+      throw new UserFacingError(
+        'Suggestions are not configured in this server (use `/suggestion setup`).',
+      );
     }
     const channel = await input.guild.channels.fetch(settings.channelId).catch(() => null);
-    if (!channel || !channel.isTextBased()) throw new UserFacingError('The suggestion channel is not usable.');
+    if (!channel || !channel.isTextBased())
+      throw new UserFacingError('The suggestion channel is not usable.');
     const id = await this.repos.community.createSuggestion({
       guildId: input.guild.id,
       channelId: settings.channelId,
@@ -291,7 +323,9 @@ export class CommunityService {
     const existing = await this.repos.community.getStarboardEntry(input.guild.id, input.message.id);
     if (input.starCount < settings.threshold) {
       if (existing?.starboard_message_id) {
-        const starMessage = await channel.messages.fetch(existing.starboard_message_id).catch(() => null);
+        const starMessage = await channel.messages
+          .fetch(existing.starboard_message_id)
+          .catch(() => null);
         await starMessage?.delete().catch(() => {});
         await this.repos.community.deleteStarboardEntry(input.guild.id, input.message.id);
       }
@@ -304,10 +338,14 @@ export class CommunityService {
       })
       .setDescription(input.message.content.slice(0, 3800) || '(no text content)')
       .addFields({ name: 'Source', value: `[Jump to message](${input.message.url})` })
-      .setFooter({ text: `${settings.emoji} ${input.starCount} • #${'name' in input.message.channel ? input.message.channel.name : 'channel'}` });
+      .setFooter({
+        text: `${settings.emoji} ${input.starCount} • #${'name' in input.message.channel ? input.message.channel.name : 'channel'}`,
+      });
 
     if (existing?.starboard_message_id) {
-      const starMessage = await channel.messages.fetch(existing.starboard_message_id).catch(() => null);
+      const starMessage = await channel.messages
+        .fetch(existing.starboard_message_id)
+        .catch(() => null);
       if (starMessage) {
         await starMessage.edit({ embeds: [embed] }).catch(() => {});
         await this.repos.community.upsertStarboardEntry({
@@ -364,14 +402,23 @@ export class CommunityService {
       if (settings.roleId) {
         const member = await guild.members.fetch(entry.user_id).catch(() => null);
         const role = await guild.roles.fetch(settings.roleId).catch(() => null);
-        if (member && role && guild.members.me && role.position < guild.members.me.roles.highest.position) {
+        if (
+          member &&
+          role &&
+          guild.members.me &&
+          role.position < guild.members.me.roles.highest.position
+        ) {
           await member.roles.add(role, 'Birthday role').catch(() => {});
           setTimeout(() => {
             void member.roles.remove(role, 'Birthday role (24h)').catch(() => {});
           }, 86_400_000);
         }
       }
-      await this.repos.community.markBirthdayAnnounced(guild.id, entry.user_id, now.getUTCFullYear());
+      await this.repos.community.markBirthdayAnnounced(
+        guild.id,
+        entry.user_id,
+        now.getUTCFullYear(),
+      );
     }
     return mine.length;
   }
@@ -435,9 +482,7 @@ export class CommunityService {
     return baseEmbed(COLORS.primary)
       .setTitle(`📊 ${question.slice(0, 250)}`)
       .setDescription(
-        options
-          .map((option, index) => `${numberEmoji(index + 1)} ${option}`)
-          .join('\n'),
+        options.map((option, index) => `${numberEmoji(index + 1)} ${option}`).join('\n'),
       )
       .setFooter({ text: 'React with the matching number to vote' });
   }
@@ -455,6 +500,9 @@ export function canPin(member: GuildMember | null): boolean {
   return member?.permissions.has(PermissionFlagsBits.ManageMessages) ?? false;
 }
 
-export function describeSuccess(title: string, description: string): ReturnType<typeof successEmbed> {
+export function describeSuccess(
+  title: string,
+  description: string,
+): ReturnType<typeof successEmbed> {
   return successEmbed(description, title);
 }

@@ -34,7 +34,9 @@ export function SettingsEditor({ guildId, modules }: Props) {
     setLoading(true);
     setMessage(null);
     setIssues([]);
-    fetch(`/api/guilds/${guildId}/settings?module=${encodeURIComponent(module)}`, { cache: 'no-store' })
+    fetch(`/api/guilds/${guildId}/settings?module=${encodeURIComponent(module)}`, {
+      cache: 'no-store',
+    })
       .then(async (response) => {
         const body = await response.json();
         if (cancelled) return;
@@ -67,7 +69,9 @@ export function SettingsEditor({ guildId, modules }: Props) {
     try {
       parsed = JSON.parse(raw);
     } catch (error) {
-      setMessage(`That is not valid JSON: ${error instanceof Error ? error.message : 'parse error'}`);
+      setMessage(
+        `That is not valid JSON: ${error instanceof Error ? error.message : 'parse error'}`,
+      );
       setSaving(false);
       return;
     }
@@ -91,7 +95,9 @@ export function SettingsEditor({ guildId, modules }: Props) {
     const text = JSON.stringify(body.values ?? parsed, null, 2);
     setRaw(text);
     setOriginal(text);
-    setMessage('Saved. The bot picks this up within its settings cache TTL (30s) or immediately on the next command.');
+    setMessage(
+      'Saved. The bot picks this up within its settings cache TTL (30s) or immediately on the next command.',
+    );
     setSaving(false);
   }
 
@@ -99,7 +105,11 @@ export function SettingsEditor({ guildId, modules }: Props) {
     <div className="card">
       <h2>Configuration</h2>
       <div className="row">
-        <select value={module} onChange={(event) => setModule(event.target.value)} style={{ maxWidth: 260 }}>
+        <select
+          value={module}
+          onChange={(event) => setModule(event.target.value)}
+          style={{ maxWidth: 260 }}
+        >
           {modules.map((name) => (
             <option key={name} value={name}>
               {name}
@@ -111,7 +121,9 @@ export function SettingsEditor({ guildId, modules }: Props) {
         </span>
       </div>
 
-      <label htmlFor="settings-json">Stored JSON (validated by the shared zod schema on save)</label>
+      <label htmlFor="settings-json">
+        Stored JSON (validated by the shared zod schema on save)
+      </label>
       <textarea
         id="settings-json"
         rows={18}

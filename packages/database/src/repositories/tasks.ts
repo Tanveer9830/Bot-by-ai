@@ -33,7 +33,12 @@ export class TaskRepository {
     const { rows } = await this.db.query<{ id: number }>(
       `INSERT INTO scheduled_tasks (guild_id, task_type, payload, run_at) VALUES ($1,$2,$3::jsonb,$4)
        RETURNING id`,
-      [input.guildId ?? null, input.taskType, JSON.stringify(input.payload ?? {}), input.runAt ?? new Date()],
+      [
+        input.guildId ?? null,
+        input.taskType,
+        JSON.stringify(input.payload ?? {}),
+        input.runAt ?? new Date(),
+      ],
     );
     return Number(rows[0]?.id);
   }
@@ -102,7 +107,11 @@ export class TaskRepository {
   }
 
   /** Removes a pending task matching a type+payload key (used to cancel timers). */
-  async cancelByPayload(taskType: string, payloadKey: string, payloadValue: string): Promise<number> {
+  async cancelByPayload(
+    taskType: string,
+    payloadKey: string,
+    payloadValue: string,
+  ): Promise<number> {
     const { rowCount } = await this.db.query(
       `DELETE FROM scheduled_tasks WHERE task_type = $1 AND status = 'pending' AND payload->>$2 = $3`,
       [taskType, payloadKey, payloadValue],

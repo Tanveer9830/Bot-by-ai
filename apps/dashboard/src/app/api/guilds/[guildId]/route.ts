@@ -23,18 +23,27 @@ export async function GET(
 
   const { repos } = getDatabase();
   const ownership = await repos.customCommands.listGuild(guildId).catch(() => []);
-  const [overview, guild, settings, moderationByAction, moderationByDay, commandUsage, topCommands, tickets, instances] =
-    await Promise.all([
-      repos.analytics.guildOverview(guildId),
-      repos.guilds.getGuild(guildId),
-      repos.guilds.getAllModuleSettings(guildId),
-      repos.analytics.moderationByAction(guildId, 30),
-      repos.analytics.moderationByDay(guildId, 30),
-      repos.commandUsage.statsForGuild(guildId, 14),
-      repos.commandUsage.topCommands(guildId, 30, 10),
-      repos.tickets.stats(guildId),
-      repos.analytics.listBotInstances().catch(() => []),
-    ]);
+  const [
+    overview,
+    guild,
+    settings,
+    moderationByAction,
+    moderationByDay,
+    commandUsage,
+    topCommands,
+    tickets,
+    instances,
+  ] = await Promise.all([
+    repos.analytics.guildOverview(guildId),
+    repos.guilds.getGuild(guildId),
+    repos.guilds.getAllModuleSettings(guildId),
+    repos.analytics.moderationByAction(guildId, 30),
+    repos.analytics.moderationByDay(guildId, 30),
+    repos.commandUsage.statsForGuild(guildId, 14),
+    repos.commandUsage.topCommands(guildId, 30, 10),
+    repos.tickets.stats(guildId),
+    repos.analytics.listBotInstances().catch(() => []),
+  ]);
 
   const botInstance = instances[0] ?? null;
 

@@ -1,0 +1,180 @@
+# ---------------------------------------------------------------------------
+# Bot-by-ai stack: PostgreSQL (required), Redis (optional), bot, dashboard and
+# an optional Lavalink node for music.
+#
+#   cp .env.example .env      # then fill in DISCORD_TOKEN, ids, secrets
+#   docker compose up -d --build
+#   docker compose run --rm migrate        # apply database migrations
+#   docker compose run --rm deploy-commands # register slash commands
+#
+# Lavalink is profile-gated so the stack runs without it by default:
+#   docker compose --profile music up -d
+# ---------------------------------------------------------------------------
+
+name: bot-by-ai
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-botuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-botbyai}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-botuser} -d ${POSTGRES_DB:-botbyai}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--save', '60', '1', '--appendonly', 'no']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bot-by-ai:latest
+    profiles: ['tools']
+    command: ['node', 'packages/database/dist/cli/migrate.js', 'up']
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-botuser}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-botbyai}
+      DATABASE_SSL: 'false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  deploy-commands:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bot-by-ai:latest
+    profiles: ['tools']
+    command: ['node', 'apps/bot/dist/scripts/deploy-commands.js', '--global']
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-botuser}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-botbyai}
+      DATABASE_SSL: 'false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bot-by-ai:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-botuser}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-botbyai}
+      DATABASE_SSL: 'false'
+      REDIS_URL: redis://redis:6379
+      PORT: '8080'
+      # Music must be enabled here *and* LAVALINK_* set in .env
+      # ENABLE_MUSIC is read from .env
+    ports:
+      - '${BOT_HEALTH_PORT:-8080}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    image: bot-by-ai-dashboard:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-botuser}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-botbyai}
+      DATABASE_SSL: 'false'
+      DASHBOARD_PORT: '3000'
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:3000}
+      # DISCORD_REDIRECT_URI must point at this deployment's public URL
+    ports:
+      - '${DASHBOARD_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  # ------------------------------------------------------------------ optional
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    profiles: ['music']
+    restart: unless-stopped
+    environment:
+      # Password is injected; never hardcode a real one in the compose file.
+      _JAVA_OPTIONS: '-Xmx1G'
+      SERVER_PORT: '2333'
+      SERVER_ADDRESS: 0.0.0.0
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-change-me-lavalink}
+    volumes:
+      - ./docker/lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    ports:
+      - '${LAVALINK_PORT:-2333}:2333'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:2333/version || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Companion node with LavaSrc for Spotify *metadata* resolution. It still needs
+  # your own Spotify application credentials — see docs/DEPLOYMENT.md.
+  lavalink-lavasrc:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    profiles: ['music-spotify']
+    restart: unless-stopped
+    environment:
+      _JAVA_OPTIONS: '-Xmx1G'
+      SERVER_PORT: '2333'
+      SERVER_ADDRESS: 0.0.0.0
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-change-me-lavalink}
+    volumes:
+      - ./docker/lavalink/application-lavasrc.yml:/opt/Lavalink/application.yml:ro
+    ports:
+      - '${LAVALINK_PORT:-2333}:2333'
+
+volumes:
+  postgres-data:
+  redis-data:

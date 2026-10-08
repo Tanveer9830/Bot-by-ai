@@ -55,7 +55,11 @@ export class EconomyRepository {
     return rows[0] as EconomyAccountRow;
   }
 
-  async ensureAccount(guildId: string, userId: string, starterBalance = 0): Promise<EconomyAccountRow> {
+  async ensureAccount(
+    guildId: string,
+    userId: string,
+    starterBalance = 0,
+  ): Promise<EconomyAccountRow> {
     return this.upsertAccount(this.db, guildId, userId, starterBalance);
   }
 
@@ -147,7 +151,9 @@ export class EconomyRepository {
       [guildId, userId, action],
     );
     const row = rows[0];
-    return row ? { lastUsedAt: row.last_used_at, streak: row.streak, uses: Number(row.uses) } : null;
+    return row
+      ? { lastUsedAt: row.last_used_at, streak: row.streak, uses: Number(row.uses) }
+      : null;
   }
 
   /**
@@ -191,10 +197,14 @@ export class EconomyRepository {
       const account = locked[0] as EconomyAccountRow;
       const next = account.wallet + input.amount;
       if (next < 0 && !input.allowNegative) {
-        throw new BusinessError('INSUFFICIENT_FUNDS', `Insufficient balance: you have ${account.wallet}.`, {
-          balance: account.wallet,
-          requested: Math.abs(input.amount),
-        });
+        throw new BusinessError(
+          'INSUFFICIENT_FUNDS',
+          `Insufficient balance: you have ${account.wallet}.`,
+          {
+            balance: account.wallet,
+            requested: Math.abs(input.amount),
+          },
+        );
       }
       const { rows: updated } = await client.query<EconomyAccountRow>(
         `UPDATE economy_accounts
@@ -292,7 +302,6 @@ export class EconomyRepository {
         [input.guildId, ordered],
       );
       const sender = locked.find((row) => row.user_id === input.fromUserId) as EconomyAccountRow;
-      const recipient = locked.find((row) => row.user_id === input.toUserId) as EconomyAccountRow;
       const total = input.amount + fee;
 
       if (sender.wallet < total) {
@@ -345,7 +354,13 @@ export class EconomyRepository {
         ],
       );
 
-      return { amount: input.amount, fee, senderWallet: senderAfter, recipientWallet: recipientAfter, replayed: false };
+      return {
+        amount: input.amount,
+        fee,
+        senderWallet: senderAfter,
+        recipientWallet: recipientAfter,
+        replayed: false,
+      };
     });
   }
 
@@ -354,7 +369,14 @@ export class EconomyRepository {
     userId: string,
     limit = 10,
   ): Promise<
-    { id: number; type: string; amount: number; fee: number; counterparty_id: string | null; created_at: Date }[]
+    {
+      id: number;
+      type: string;
+      amount: number;
+      fee: number;
+      counterparty_id: string | null;
+      created_at: Date;
+    }[]
   > {
     const { rows } = await this.db.query(
       `SELECT id, type, amount, fee, counterparty_id, created_at FROM economy_transactions
@@ -377,7 +399,10 @@ export class EconomyRepository {
       type: string;
       amount: number;
       created_at: Date;
-    }>('SELECT guild_id, user_id, type, amount, created_at FROM economy_transactions WHERE id = $1', [id]);
+    }>(
+      'SELECT guild_id, user_id, type, amount, created_at FROM economy_transactions WHERE id = $1',
+      [id],
+    );
     return rows[0] ?? null;
   }
 
@@ -448,7 +473,10 @@ export class EconomyRepository {
     return (rowCount ?? 0) > 0;
   }
 
-  async listShopItems(guildId: string, includeDisabled = false): Promise<
+  async listShopItems(
+    guildId: string,
+    includeDisabled = false,
+  ): Promise<
     {
       id: number;
       name: string;
@@ -480,7 +508,13 @@ export class EconomyRepository {
     itemId: number;
     quantity?: number;
     starterBalance?: number;
-  }): Promise<{ itemName: string; roleId: string | null; quantity: number; balance: number; price: number }> {
+  }): Promise<{
+    itemName: string;
+    roleId: string | null;
+    quantity: number;
+    balance: number;
+    price: number;
+  }> {
     const quantity = Math.max(1, Math.floor(input.quantity ?? 1));
     return this.db.transaction(async (client) => {
       const { rows: items } = await client.query<{
@@ -522,10 +556,10 @@ export class EconomyRepository {
         [input.guildId, input.userId, cost],
       );
       if (item.stock !== null) {
-        await client.query(
-          'UPDATE shop_items SET stock = stock - $2 WHERE id = $1',
-          [item.id, quantity],
-        );
+        await client.query('UPDATE shop_items SET stock = stock - $2 WHERE id = $1', [
+          item.id,
+          quantity,
+        ]);
       }
       await client.query(
         `INSERT INTO inventory (guild_id, user_id, item_id, quantity)
@@ -558,7 +592,9 @@ export class EconomyRepository {
   async getInventory(
     guildId: string,
     userId: string,
-  ): Promise<{ item_id: number; name: string; quantity: number; role_id: string | null; acquired_at: Date }[]> {
+  ): Promise<
+    { item_id: number; name: string; quantity: number; role_id: string | null; acquired_at: Date }[]
+  > {
     const { rows } = await this.db.query(
       `SELECT i.item_id, s.name, i.quantity, s.role_id, i.acquired_at
          FROM inventory i JOIN shop_items s ON s.id = i.item_id

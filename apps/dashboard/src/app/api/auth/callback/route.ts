@@ -45,7 +45,9 @@ export async function GET(request: NextRequest): Promise<Response> {
       fetchIdentity(tokens.access_token),
       fetchUserGuilds(tokens.access_token),
     ]);
-    const manageable = guilds.filter((guild) => guild.owner || canManage(guild.permissions)).map((guild) => guild.id);
+    const manageable = guilds
+      .filter((guild) => guild.owner || canManage(guild.permissions))
+      .map((guild) => guild.id);
 
     const { token } = await createSession({
       userId: identity.id,

@@ -114,7 +114,11 @@ export class SecurityRepository {
 
   /** Guilds whose security lockdown is currently marked active (scheduler sweep). */
   async listActiveLockdowns(): Promise<{ guild_id: string; until: number | null }[]> {
-    const { rows } = await this.db.query<{ guild_id: string; until: string | null; active: string }>(
+    const { rows } = await this.db.query<{
+      guild_id: string;
+      until: string | null;
+      active: string;
+    }>(
       `SELECT guild_id,
               modules->'security'->'lockdown'->>'until' AS until,
               modules->'security'->'lockdown'->>'active' AS active
@@ -153,7 +157,13 @@ export class SecurityRepository {
   }
 
   async listTrusted(guildId: string): Promise<
-    { entity_type: string; entity_id: string; note: string | null; added_by: string | null; created_at: Date }[]
+    {
+      entity_type: string;
+      entity_id: string;
+      note: string | null;
+      added_by: string | null;
+      created_at: Date;
+    }[]
   > {
     const { rows } = await this.db.query(
       `SELECT entity_type, entity_id, note, added_by, created_at FROM trusted_entities
@@ -163,7 +173,11 @@ export class SecurityRepository {
     return rows as never;
   }
 
-  async isTrusted(guildId: string, entityType: 'user' | 'role' | 'channel', entityId: string): Promise<boolean> {
+  async isTrusted(
+    guildId: string,
+    entityType: 'user' | 'role' | 'channel',
+    entityId: string,
+  ): Promise<boolean> {
     const { rows } = await this.db.query<{ exists: boolean }>(
       `SELECT EXISTS(
          SELECT 1 FROM trusted_entities WHERE guild_id = $1 AND entity_type = $2 AND entity_id = $3
@@ -199,7 +213,11 @@ export class SecurityRepository {
     );
   }
 
-  async countRecentAutomodViolations(guildId: string, userId: string, windowMs: number): Promise<number> {
+  async countRecentAutomodViolations(
+    guildId: string,
+    userId: string,
+    windowMs: number,
+  ): Promise<number> {
     const { rows } = await this.db.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM automod_violations
         WHERE guild_id = $1 AND user_id = $2

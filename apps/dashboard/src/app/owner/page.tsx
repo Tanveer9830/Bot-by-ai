@@ -37,8 +37,8 @@ export default async function OwnerPage() {
             </h2>
             <p>{body.error}</p>
             <p className="muted">
-              This panel is limited to the ids in <code>BOT_OWNER_IDS</code>. Discord administrator permissions do
-              not grant access, and the check runs server-side on every request.
+              This panel is limited to the ids in <code>BOT_OWNER_IDS</code>. Discord administrator
+              permissions do not grant access, and the check runs server-side on every request.
             </p>
             {status === 401 ? (
               <p>
@@ -80,8 +80,11 @@ export default async function OwnerPage() {
             Owner panel <span className="badge ok">authorized server-side</span>
           </h2>
           <p className="muted">
-            Signed in as <code>{auth.session.userId}</code> · owners: {owners.ids.map((id) => <code key={id}>{id} </code>)} ·
-            dashboard v{APP_VERSION} · node {process.version}
+            Signed in as <code>{auth.session.userId}</code> · owners:{' '}
+            {owners.ids.map((id) => (
+              <code key={id}>{id} </code>
+            ))}{' '}
+            · dashboard v{APP_VERSION} · node {process.version}
           </p>
         </div>
 
@@ -91,7 +94,9 @@ export default async function OwnerPage() {
             <Stat
               label="PostgreSQL"
               value={health.ok ? 'healthy' : 'DOWN'}
-              sub={health.ok ? `${health.latencyMs} ms round trip` : (health.error ?? 'unknown error')}
+              sub={
+                health.ok ? `${health.latencyMs} ms round trip` : (health.error ?? 'unknown error')
+              }
             />
             <Stat label="Active dashboard sessions" value={sessions ?? 'unavailable'} />
             <Stat label="Pending scheduled tasks" value={pending ?? 'unavailable'} />
@@ -107,7 +112,8 @@ export default async function OwnerPage() {
           <h2>Recorded bot instances</h2>
           {instances.length === 0 ? (
             <p className="muted">
-              No heartbeat recorded yet. The bot writes one to <code>bot_instances</code> after it connects.
+              No heartbeat recorded yet. The bot writes one to <code>bot_instances</code> after it
+              connects.
             </p>
           ) : (
             <table>
@@ -131,12 +137,18 @@ export default async function OwnerPage() {
                       <code>{instance.id}</code>
                     </td>
                     <td>
-                      <span className={`badge ${instance.status === 'online' ? 'ok' : 'warn'}`}>{instance.status}</span>
+                      <span className={`badge ${instance.status === 'online' ? 'ok' : 'warn'}`}>
+                        {instance.status}
+                      </span>
                     </td>
                     <td>{instance.guild_count}</td>
                     <td>{Number(instance.user_count).toLocaleString('en-US')}</td>
-                    <td>{instance.ws_ping_ms === null ? 'unavailable' : `${instance.ws_ping_ms} ms`}</td>
-                    <td>{instance.memory_mb === null ? 'unavailable' : `${instance.memory_mb} MB`}</td>
+                    <td>
+                      {instance.ws_ping_ms === null ? 'unavailable' : `${instance.ws_ping_ms} ms`}
+                    </td>
+                    <td>
+                      {instance.memory_mb === null ? 'unavailable' : `${instance.memory_mb} MB`}
+                    </td>
                     <td>{Math.round(Number(instance.uptime_seconds) / 60)} min</td>
                     <td>
                       {instance.version ?? '?'} / {instance.node_version ?? '?'}
@@ -172,8 +184,8 @@ export default async function OwnerPage() {
             </tbody>
           </table>
           <p className="muted">
-            Secret values (token, client secret, session secret, database URL, Lavalink password) are never rendered —
-            only whether they are configured.
+            Secret values (token, client secret, session secret, database URL, Lavalink password)
+            are never rendered — only whether they are configured.
           </p>
         </div>
 
@@ -181,8 +193,8 @@ export default async function OwnerPage() {
           <h2>Global custom commands</h2>
           {globals.length === 0 ? (
             <p className="muted">
-              None defined. Create them in Discord with <code>/globalcommand create</code> (owner-only) and publish
-              with <code>/globalcommand publish</code>.
+              None defined. Create them in Discord with <code>/globalcommand create</code>{' '}
+              (owner-only) and publish with <code>/globalcommand publish</code>.
             </p>
           ) : (
             <table>
@@ -234,9 +246,7 @@ export default async function OwnerPage() {
                     <td>
                       <code>{row.action}</code>
                     </td>
-                    <td>
-                      {row.actor_id ? `${row.actor_id} (${row.actor_type})` : row.actor_type}
-                    </td>
+                    <td>{row.actor_id ? `${row.actor_id} (${row.actor_type})` : row.actor_type}</td>
                     <td>{row.guild_id ?? '—'}</td>
                     <td>{row.target_type ? `${row.target_type}:${row.target_id ?? '—'}` : '—'}</td>
                   </tr>

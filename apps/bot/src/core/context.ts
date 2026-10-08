@@ -1,5 +1,11 @@
 import type { Client } from 'discord.js';
-import type { AppConfig, CooldownBucket, Logger, OwnerRegistry, RateLimiter } from '@bot-by-ai/shared';
+import type {
+  AppConfig,
+  CooldownBucket,
+  Logger,
+  OwnerRegistry,
+  RateLimiter,
+} from '@bot-by-ai/shared';
 import type { Database, Repositories } from '@bot-by-ai/database';
 import type { GuildSettingsService } from '../services/settings.js';
 import type { LoggingService } from '../services/logging.js';
@@ -47,5 +53,10 @@ export interface BotServices {
   startedAt: number;
   version: string;
   /** Metadata for every loaded command (used by /help and the dashboard). */
-  commandCatalog: () => { name: string; category: string; description: string; ownerOnly: boolean }[];
+  commandCatalog: () => {
+    name: string;
+    category: string;
+    description: string;
+    ownerOnly: boolean;
+  }[];
 }

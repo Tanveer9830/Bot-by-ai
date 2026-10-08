@@ -88,7 +88,9 @@ export class SchedulerService {
       const backoff = Math.min(10 * 60_000, 5_000 * 2 ** Math.max(0, task.attempts - 1));
       await this.repos.tasks
         .fail(task.id, message, backoff, MAX_ATTEMPTS)
-        .catch((failError) => this.logger.error('failed to mark task as failed', errorForLog(failError)));
+        .catch((failError) =>
+          this.logger.error('failed to mark task as failed', errorForLog(failError)),
+        );
       this.logger.warn('task failed', {
         taskType: task.task_type,
         id: task.id,
@@ -107,7 +109,8 @@ export class SchedulerService {
         const guildId = task.guild_id;
         if (!guildId || !Number.isFinite(giveawayId)) return 'skipped: invalid payload';
         const guild =
-          this.client.guilds.cache.get(guildId) ?? (await this.client.guilds.fetch(guildId).catch(() => null));
+          this.client.guilds.cache.get(guildId) ??
+          (await this.client.guilds.fetch(guildId).catch(() => null));
         if (!guild) return 'skipped: guild unavailable';
         const result = await services.community.endGiveaway({ guild, giveawayId });
         return `winners: ${result.winners.length}`;

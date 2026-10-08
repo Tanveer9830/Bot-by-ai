@@ -22,7 +22,7 @@
     "migrate:status": "npm run migrate:status -w @bot-by-ai/database",
     "seed": "npm run seed -w @bot-by-ai/database",
     "typecheck": "tsc -b tsconfig.build.json --pretty false",
-    "typecheck:all": "npm run typecheck -w @bot-by-ai/shared && npm run typecheck -w @bot-by-ai/database && npm run typecheck -w @bot-by-ai/bot && npm run typecheck -w @bot-by-ai/dashboard",
+    "typecheck:all": "npm run typecheck -w @bot-by-ai/shared && npm run typecheck -w @bot-by-ai/database && npm run typecheck -w @bot-by-ai/bot && npm run typecheck -w @bot-by-ai/dashboard && npm run typecheck:tests",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml}\"",
@@ -31,7 +31,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "ci": "npm run format:check && npm run lint && npm run typecheck:all && npm run test && npm run build",
-    "commands:count": "node scripts/count-commands.mjs"
+    "commands:count": "node scripts/count-commands.mjs",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

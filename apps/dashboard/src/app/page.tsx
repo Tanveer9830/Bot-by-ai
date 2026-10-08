@@ -23,9 +23,10 @@ export default async function HomePage({
           <div className="card">
             <h2>Sign in with Discord</h2>
             <p className="muted">
-              The dashboard uses Discord OAuth2 (<code>identify guilds</code>) to learn which servers you
-              manage. Server-side authorization is re-checked on every request with the bot token, so URL
-              guessing or hidden UI is never enough to read another server&apos;s data.
+              The dashboard uses Discord OAuth2 (<code>identify guilds</code>) to learn which
+              servers you manage. Server-side authorization is re-checked on every request with the
+              bot token, so URL guessing or hidden UI is never enough to read another server&apos;s
+              data.
             </p>
             <p>
               <Link className="button" href="/api/auth/login">
@@ -33,7 +34,8 @@ export default async function HomePage({
               </Link>
             </p>
             <p className="muted">
-              Dashboard module: <span className="badge">{config.dashboard.enabled ? 'enabled' : 'disabled'}</span>{' '}
+              Dashboard module:{' '}
+              <span className="badge">{config.dashboard.enabled ? 'enabled' : 'disabled'}</span>{' '}
               Music: <span className="badge">{config.music.enabled ? 'enabled' : 'disabled'}</span>
             </p>
           </div>
@@ -56,7 +58,8 @@ export default async function HomePage({
             {session.isOwner ? <span className="badge ok">bot owner</span> : null}
           </h2>
           <p className="muted">
-            Session expires {session.expiresAt.toISOString()} · {session.guildIds.length} manageable server(s).
+            Session expires {session.expiresAt.toISOString()} · {session.guildIds.length} manageable
+            server(s).
           </p>
         </div>
 
@@ -73,7 +76,15 @@ export default async function HomePage({
                     <div className="label">{row?.name ?? 'Unknown server'}</div>
                     <div className="value">{row?.member_count ?? '—'}</div>
                     <div className="sub">
-                      {row ? (row.left_at ? <span className="badge bad">bot left</span> : <span className="badge ok">tracked</span>) : <span className="badge warn">not yet seen</span>}
+                      {row ? (
+                        row.left_at ? (
+                          <span className="badge bad">bot left</span>
+                        ) : (
+                          <span className="badge ok">tracked</span>
+                        )
+                      ) : (
+                        <span className="badge warn">not yet seen</span>
+                      )}
                     </div>
                     <p>
                       <Link href={`/guilds/${id}`}>Open configuration →</Link>

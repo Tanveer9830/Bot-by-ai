@@ -10,19 +10,9 @@
  * startup. Both configured ids have identical privileges; there is no primary
  * owner with extra powers and no hidden account.
  */
-import {
-  ChannelType,
-  GuildMember,
-  MessageFlags,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-  type ChatInputCommandInteraction,
-  type Guild,
-  type TextChannel,
-} from 'discord.js';
+import { ChannelType, MessageFlags, SlashCommandBuilder, type TextChannel } from 'discord.js';
 import {
   customCommandSchema,
-  formatBytes,
   formatDuration,
   formatRelativeTimestamp,
   formatTimestamp,
@@ -31,15 +21,10 @@ import {
 } from '@bot-by-ai/shared';
 import { COLORS } from '../core/constants.js';
 import { defineCommands, type BotCommand, type CommandContext } from '../core/command.js';
-import { baseEmbed, errorEmbed, successEmbed, warningEmbed } from '../core/embeds.js';
+import { baseEmbed, successEmbed, warningEmbed } from '../core/embeds.js';
 import { confirmAction, sendPaginated } from '../core/ui.js';
 
 const CUSTOM_COMMAND_NAME = /^[a-z0-9][a-z0-9-_]{0,31}$/;
-
-function guildOf(interaction: ChatInputCommandInteraction): Guild {
-  if (!interaction.guild) throw new UserFacingError('This command only works inside a server.');
-  return interaction.guild;
-}
 
 /** Builds the stored payload for a global custom command from validated input. */
 function buildPayload(input: {
@@ -56,9 +41,7 @@ function buildPayload(input: {
     description: input.description,
     response: input.response,
     embed: null,
-    actions: input.dmInstead
-      ? [{ type: 'send_dm', message: truncate(input.response, 1500) }]
-      : [],
+    actions: input.dmInstead ? [{ type: 'send_dm', message: truncate(input.response, 1500) }] : [],
     enabled: true,
     ephemeral: input.ephemeral,
     requiredRoleIds: [],
@@ -92,56 +75,123 @@ export const commands: BotCommand[] = defineCommands([
           .setName('create')
           .setDescription('Create (or fully replace) a global custom command')
           .addStringOption((option) =>
-            option.setName('name').setDescription('Command name (a-z0-9, dashes)').setRequired(true).setMaxLength(32),
+            option
+              .setName('name')
+              .setDescription('Command name (a-z0-9, dashes)')
+              .setRequired(true)
+              .setMaxLength(32),
           )
           .addStringOption((option) =>
-            option.setName('response').setDescription('Text sent when the command is used').setRequired(true).setMaxLength(4000),
+            option
+              .setName('response')
+              .setDescription('Text sent when the command is used')
+              .setRequired(true)
+              .setMaxLength(4000),
           )
-          .addStringOption((option) => option.setName('description').setDescription('Description shown in lists').setMaxLength(100))
-          .addBooleanOption((option) => option.setName('publish').setDescription('Publish immediately (default: no)'))
-          .addBooleanOption((option) => option.setName('ephemeral').setDescription('Only the caller can see the response'))
-          .addBooleanOption((option) => option.setName('dm').setDescription('Also DM the caller the response'))
+          .addStringOption((option) =>
+            option
+              .setName('description')
+              .setDescription('Description shown in lists')
+              .setMaxLength(100),
+          )
+          .addBooleanOption((option) =>
+            option.setName('publish').setDescription('Publish immediately (default: no)'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('ephemeral').setDescription('Only the caller can see the response'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('dm').setDescription('Also DM the caller the response'),
+          )
           .addIntegerOption((option) =>
-            option.setName('cooldown').setDescription('Per-user cooldown in seconds (default 3)').setMinValue(0).setMaxValue(3600),
+            option
+              .setName('cooldown')
+              .setDescription('Per-user cooldown in seconds (default 3)')
+              .setMinValue(0)
+              .setMaxValue(3600),
           ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('edit')
           .setDescription('Edit an existing global custom command')
-          .addStringOption((option) => option.setName('name').setDescription('Existing command name').setRequired(true).setMaxLength(32))
-          .addStringOption((option) => option.setName('response').setDescription('New response text').setMaxLength(4000))
-          .addStringOption((option) => option.setName('description').setDescription('New description').setMaxLength(100))
-          .addBooleanOption((option) => option.setName('ephemeral').setDescription('Only the caller can see the response'))
-          .addBooleanOption((option) => option.setName('dm').setDescription('Also DM the caller the response'))
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Existing command name')
+              .setRequired(true)
+              .setMaxLength(32),
+          )
+          .addStringOption((option) =>
+            option.setName('response').setDescription('New response text').setMaxLength(4000),
+          )
+          .addStringOption((option) =>
+            option.setName('description').setDescription('New description').setMaxLength(100),
+          )
+          .addBooleanOption((option) =>
+            option.setName('ephemeral').setDescription('Only the caller can see the response'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('dm').setDescription('Also DM the caller the response'),
+          )
           .addIntegerOption((option) =>
-            option.setName('cooldown').setDescription('Per-user cooldown in seconds').setMinValue(0).setMaxValue(3600),
+            option
+              .setName('cooldown')
+              .setDescription('Per-user cooldown in seconds')
+              .setMinValue(0)
+              .setMaxValue(3600),
           ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('delete')
           .setDescription('Delete a global custom command')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setMaxLength(32)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setMaxLength(32),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('list').setDescription('List global custom commands with usage counts'))
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('List global custom commands with usage counts'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('info')
           .setDescription('Show the stored JSON of a global custom command')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setMaxLength(32)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setMaxLength(32),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('publish')
           .setDescription('Make a global command available in every server')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setMaxLength(32)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setMaxLength(32),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('disable')
           .setDescription('Take a global command offline in every server')
-          .addStringOption((option) => option.setName('name').setDescription('Command name').setRequired(true).setMaxLength(32)),
+          .addStringOption((option) =>
+            option
+              .setName('name')
+              .setDescription('Command name')
+              .setRequired(true)
+              .setMaxLength(32),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       // Defence in depth: the runner already blocks non-owners.
@@ -152,7 +202,9 @@ export const commands: BotCommand[] = defineCommands([
       if (sub === 'create') {
         const name = (interaction.options.getString('name', true) ?? '').toLowerCase();
         if (!CUSTOM_COMMAND_NAME.test(name)) {
-          throw new UserFacingError('Names must be lowercase letters, numbers, dashes or underscores (max 32 characters).');
+          throw new UserFacingError(
+            'Names must be lowercase letters, numbers, dashes or underscores (max 32 characters).',
+          );
         }
         const response = interaction.options.getString('response', true);
         const description = interaction.options.getString('description') ?? truncate(response, 100);
@@ -166,10 +218,20 @@ export const commands: BotCommand[] = defineCommands([
         }
         const existing = await services.repos.customCommands.getGlobal(name);
         if (existing) {
-          throw new UserFacingError(`Global command \`${name}\` already exists. Use \`/globalcommand edit\` instead.`);
+          throw new UserFacingError(
+            `Global command \`${name}\` already exists. Use \`/globalcommand edit\` instead.`,
+          );
         }
 
-        const payload = buildPayload({ name, description, response, ephemeral, cooldownSeconds: cooldown, dmInstead: dm, publish });
+        const payload = buildPayload({
+          name,
+          description,
+          response,
+          ephemeral,
+          cooldownSeconds: cooldown,
+          dmInstead: dm,
+          publish,
+        });
         const row = await services.repos.customCommands.upsertGlobal({
           name,
           description,
@@ -202,11 +264,16 @@ export const commands: BotCommand[] = defineCommands([
         if (!existing) throw new UserFacingError(`No global command named \`${name}\` exists.`);
 
         const current = existing.payload as Record<string, unknown>;
-        const response = interaction.options.getString('response') ?? String(current['response'] ?? '');
+        const response =
+          interaction.options.getString('response') ?? String(current['response'] ?? '');
         const description = interaction.options.getString('description') ?? existing.description;
-        const ephemeral = interaction.options.getBoolean('ephemeral') ?? current['ephemeral'] === true;
-        const dm = interaction.options.getBoolean('dm') ?? (Array.isArray(current['actions']) && (current['actions'] as unknown[]).length > 0);
-        const cooldown = interaction.options.getInteger('cooldown') ?? Number(current['cooldownSeconds'] ?? 3);
+        const ephemeral =
+          interaction.options.getBoolean('ephemeral') ?? current['ephemeral'] === true;
+        const dm =
+          interaction.options.getBoolean('dm') ??
+          (Array.isArray(current['actions']) && (current['actions'] as unknown[]).length > 0);
+        const cooldown =
+          interaction.options.getInteger('cooldown') ?? Number(current['cooldownSeconds'] ?? 3);
 
         const payload = buildPayload({
           name,
@@ -233,7 +300,9 @@ export const commands: BotCommand[] = defineCommands([
           targetId: String(existing.id),
           metadata: { name },
         });
-        await interaction.editReply({ embeds: [successEmbed(`Global command \`${name}\` was updated.`)] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Global command \`${name}\` was updated.`)],
+        });
         return;
       }
 
@@ -260,7 +329,9 @@ export const commands: BotCommand[] = defineCommands([
           targetId: String(existing.id),
           metadata: { name },
         });
-        await interaction.editReply({ embeds: [successEmbed(`Global command \`${name}\` was deleted.`)] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Global command \`${name}\` was deleted.`)],
+        });
         return;
       }
 
@@ -275,7 +346,12 @@ export const commands: BotCommand[] = defineCommands([
               `${row.published ? '✅ published' : '⏸️ draft'} • ${row.enabled ? 'enabled' : 'disabled'} • uses ${row.uses}`,
               `updated ${formatTimestamp(new Date(row.updated_at).getTime())} by ${row.updated_by ? `<@${row.updated_by}>` : 'unknown'}`,
             ].join('\n'),
-          { title: '🌐 Global custom commands', pageSize: 5, ephemeral: true, emptyMessage: 'No global commands exist yet.' },
+          {
+            title: '🌐 Global custom commands',
+            pageSize: 5,
+            ephemeral: true,
+            emptyMessage: 'No global commands exist yet.',
+          },
         );
         return;
       }
@@ -288,12 +364,18 @@ export const commands: BotCommand[] = defineCommands([
           embeds: [
             baseEmbed(COLORS.primary)
               .setTitle(`Global command: ${existing.name}`)
-              .setDescription(`\`\`\`json\n${truncate(JSON.stringify(existing.payload, null, 2), 3500)}\n\`\`\``)
+              .setDescription(
+                `\`\`\`json\n${truncate(JSON.stringify(existing.payload, null, 2), 3500)}\n\`\`\``,
+              )
               .addFields(
                 { name: 'Published', value: String(existing.published), inline: true },
                 { name: 'Enabled', value: String(existing.enabled), inline: true },
                 { name: 'Uses', value: String(existing.uses), inline: true },
-                { name: 'Created by', value: existing.created_by ? `<@${existing.created_by}>` : 'unknown', inline: true },
+                {
+                  name: 'Created by',
+                  value: existing.created_by ? `<@${existing.created_by}>` : 'unknown',
+                  inline: true,
+                },
               ),
           ],
         });
@@ -337,31 +419,52 @@ export const commands: BotCommand[] = defineCommands([
     data: new SlashCommandBuilder()
       .setName('owner')
       .setDescription('Owner-only: runtime status, diagnostics and maintenance')
-      .addSubcommand((sub) => sub.setName('status').setDescription('Live runtime snapshot with real metrics'))
-      .addSubcommand((sub) => sub.setName('instances').setDescription('Recorded bot heartbeats from bot_instances'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Live runtime snapshot with real metrics'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('instances').setDescription('Recorded bot heartbeats from bot_instances'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('guilds')
           .setDescription('Servers this bot is in, with member counts and DB state'),
       )
-      .addSubcommand((sub) => sub.setName('commands').setDescription('Loaded commands and validation issues'))
+      .addSubcommand((sub) =>
+        sub.setName('commands').setDescription('Loaded commands and validation issues'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('lookup')
           .setDescription('Look up a stored user record')
-          .addUserOption((option) => option.setName('user').setDescription('User to look up').setRequired(true)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('User to look up').setRequired(true),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('cache').setDescription('Clear the in-process guild settings cache'))
+      .addSubcommand((sub) =>
+        sub.setName('cache').setDescription('Clear the in-process guild settings cache'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('announce')
           .setDescription('Send an announcement as the bot')
-          .addStringOption((option) => option.setName('message').setDescription('Message to send').setRequired(true).setMaxLength(1500))
+          .addStringOption((option) =>
+            option
+              .setName('message')
+              .setDescription('Message to send')
+              .setRequired(true)
+              .setMaxLength(1500),
+          )
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Channel (defaults to the current one)').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Channel (defaults to the current one)')
+              .addChannelTypes(ChannelType.GuildText),
           )
           .addBooleanOption((option) =>
-            option.setName('all_guilds').setDescription('Send to the system channel of every server (max 50, asks first)'),
+            option
+              .setName('all_guilds')
+              .setDescription('Send to the system channel of every server (max 50, asks first)'),
           ),
       ),
     async execute({ interaction, services }: CommandContext) {
@@ -410,7 +513,11 @@ export const commands: BotCommand[] = defineCommands([
               `ping ${instance.ws_ping_ms ?? 'n/a'} ms • memory ${instance.memory_mb ?? 'n/a'} MB • up ${formatDuration(instance.uptime_seconds * 1000)}`,
               `v${instance.version ?? '?'} on ${instance.node_version ?? '?'} • last heartbeat ${formatTimestamp(new Date(instance.last_heartbeat_at).getTime())}`,
             ].join('\n'),
-          { title: '📡 Recorded instances', pageSize: 4, emptyMessage: 'No heartbeat has been recorded yet.' },
+          {
+            title: '📡 Recorded instances',
+            pageSize: 4,
+            emptyMessage: 'No heartbeat has been recorded yet.',
+          },
         );
         return;
       }
@@ -420,7 +527,9 @@ export const commands: BotCommand[] = defineCommands([
         const cached = [...services.client.guilds.cache.values()].sort(
           (a, b) => (b.memberCount ?? 0) - (a.memberCount ?? 0),
         );
-        const rows = await services.repos.guilds.listGuildsForIds(cached.map((guild) => guild.id)).catch(() => []);
+        const rows = await services.repos.guilds
+          .listGuildsForIds(cached.map((guild) => guild.id))
+          .catch(() => []);
         const tracked = new Set(rows.map((row) => row.id));
         await sendPaginated(
           interaction,
@@ -438,11 +547,13 @@ export const commands: BotCommand[] = defineCommands([
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const catalog = services.commandCatalog();
         const byCategory = new Map<string, number>();
-        for (const entry of catalog) byCategory.set(entry.category, (byCategory.get(entry.category) ?? 0) + 1);
+        for (const entry of catalog)
+          byCategory.set(entry.category, (byCategory.get(entry.category) ?? 0) + 1);
         await sendPaginated(
           interaction,
           catalog,
-          (entry) => `\`/${entry.name}\` —${entry.ownerOnly ? ' 🔒' : ''} ${truncate(entry.description, 70)}\n_category:_ ${entry.category}`,
+          (entry) =>
+            `\`/${entry.name}\` —${entry.ownerOnly ? ' 🔒' : ''} ${truncate(entry.description, 70)}\n_category:_ ${entry.category}`,
           {
             title: `🧩 Loaded commands (${catalog.length})`,
             pageSize: 12,
@@ -462,7 +573,11 @@ export const commands: BotCommand[] = defineCommands([
         const record = await services.repos.users.getUser(user.id);
         if (!record) {
           await interaction.editReply({
-            embeds: [warningEmbed(`No database record exists for <@${user.id}>. Users are stored when they trigger an event.`)],
+            embeds: [
+              warningEmbed(
+                `No database record exists for <@${user.id}>. Users are stored when they trigger an event.`,
+              ),
+            ],
           });
           return;
         }
@@ -475,8 +590,16 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'Global name', value: record.global_name ?? '—', inline: true },
                 { name: 'Bot account', value: String(record.is_bot), inline: true },
                 { name: 'Locale', value: record.locale ?? '—', inline: true },
-                { name: 'First seen', value: formatTimestamp(new Date(record.created_at).getTime()), inline: true },
-                { name: 'Updated', value: formatTimestamp(new Date(record.updated_at).getTime()), inline: true },
+                {
+                  name: 'First seen',
+                  value: formatTimestamp(new Date(record.created_at).getTime()),
+                  inline: true,
+                },
+                {
+                  name: 'Updated',
+                  value: formatTimestamp(new Date(record.updated_at).getTime()),
+                  inline: true,
+                },
               ),
           ],
         });
@@ -487,7 +610,11 @@ export const commands: BotCommand[] = defineCommands([
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         services.settings.invalidateAll();
         await interaction.editReply({
-          embeds: [successEmbed('The guild settings cache was cleared. The next read reloads from PostgreSQL.')],
+          embeds: [
+            successEmbed(
+              'The guild settings cache was cleared. The next read reloads from PostgreSQL.',
+            ),
+          ],
         });
         return;
       }
@@ -499,12 +626,14 @@ export const commands: BotCommand[] = defineCommands([
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       if (allGuilds) {
-        if (channelOption) throw new UserFacingError('Combine `channel` or `all_guilds`, not both.');
+        if (channelOption)
+          throw new UserFacingError('Combine `channel` or `all_guilds`, not both.');
         const targets = [...services.client.guilds.cache.values()]
           .map((guild) => guild.systemChannel ?? guild.publicUpdatesChannel)
           .filter((channel): channel is TextChannel => Boolean(channel && channel.isTextBased()))
           .slice(0, 50);
-        if (targets.length === 0) throw new UserFacingError('None of the servers expose a system channel I can post in.');
+        if (targets.length === 0)
+          throw new UserFacingError('None of the servers expose a system channel I can post in.');
         const confirmed = await confirmAction(interaction, {
           title: 'Send to every server?',
           description: `This posts to the system channel of **${targets.length}** server(s). Some servers have no system channel and are skipped.`,
@@ -577,23 +706,42 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('audit')
           .setDescription('Show recent audit log entries')
-          .addStringOption((option) => option.setName('action').setDescription('Filter by action, e.g. owner.announce'))
-          .addStringOption((option) => option.setName('actor').setDescription('Filter by actor user id'))
-          .addIntegerOption((option) => option.setName('limit').setDescription('Rows to fetch (1-50)').setMinValue(1).setMaxValue(50)),
+          .addStringOption((option) =>
+            option.setName('action').setDescription('Filter by action, e.g. owner.announce'),
+          )
+          .addStringOption((option) =>
+            option.setName('actor').setDescription('Filter by actor user id'),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('limit')
+              .setDescription('Rows to fetch (1-50)')
+              .setMinValue(1)
+              .setMaxValue(50),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('prune')
           .setDescription('Delete audit log rows older than N days')
-          .addIntegerOption((option) => option.setName('days').setDescription('Retention in days').setRequired(true).setMinValue(7).setMaxValue(3650))
-          .addBooleanOption((option) => option.setName('confirm').setDescription('Required to actually delete rows')),
+          .addIntegerOption((option) =>
+            option
+              .setName('days')
+              .setDescription('Retention in days')
+              .setRequired(true)
+              .setMinValue(7)
+              .setMaxValue(3650),
+          )
+          .addBooleanOption((option) =>
+            option.setName('confirm').setDescription('Required to actually delete rows'),
+          ),
       )
       .addSubcommand((sub) =>
-        sub
-          .setName('expire-cases')
-          .setDescription('Run the temporary-punishment expiry sweep now'),
+        sub.setName('expire-cases').setDescription('Run the temporary-punishment expiry sweep now'),
       )
-      .addSubcommand((sub) => sub.setName('dbstats').setDescription('Row counts for the main tables')),
+      .addSubcommand((sub) =>
+        sub.setName('dbstats').setDescription('Row counts for the main tables'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       services.owners.assertOwner(interaction.user.id);
       const sub = interaction.options.getSubcommand(true);
@@ -614,7 +762,11 @@ export const commands: BotCommand[] = defineCommands([
           (row) =>
             `**${row.action}** by <@${row.actor_id ?? '0'}> (${row.actor_type}) ${formatRelativeTimestamp(new Date(row.created_at).getTime())}\n` +
             `target: ${row.target_type ?? '—'}${row.target_id ? ` \`${row.target_id}\`` : ''} • ${truncate(JSON.stringify(row.metadata ?? {}), 120)}`,
-          { title: `📜 Audit log (${total} rows match)`, pageSize: 6, emptyMessage: 'No audit entries match that filter.' },
+          {
+            title: `📜 Audit log (${total} rows match)`,
+            pageSize: 6,
+            emptyMessage: 'No audit entries match that filter.',
+          },
         );
         return;
       }
@@ -641,21 +793,26 @@ export const commands: BotCommand[] = defineCommands([
           targetType: 'audit_logs',
           metadata: { days, deleted },
         });
-        await interaction.editReply({ embeds: [successEmbed(`Deleted **${deleted}** audit row(s) older than ${days} day(s).`)] });
+        await interaction.editReply({
+          embeds: [successEmbed(`Deleted **${deleted}** audit row(s) older than ${days} day(s).`)],
+        });
         return;
       }
 
       if (sub === 'expire-cases') {
         const expired = await services.moderation.expireCases();
         await interaction.editReply({
-          embeds: [successEmbed(`Expiry sweep finished: **${expired}** moderation case(s) processed.`)],
+          embeds: [
+            successEmbed(`Expiry sweep finished: **${expired}** moderation case(s) processed.`),
+          ],
         });
         return;
       }
 
       // dbstats
-      const stats = (await services.db.query<Record<string, string>>(
-        `SELECT
+      const stats = (
+        await services.db.query<Record<string, string>>(
+          `SELECT
            (SELECT count(*)::text FROM guilds) AS guilds,
            (SELECT count(*)::text FROM users) AS users,
            (SELECT count(*)::text FROM guild_settings) AS guild_settings,
@@ -673,7 +830,8 @@ export const commands: BotCommand[] = defineCommands([
            (SELECT count(*)::text FROM scheduled_tasks WHERE completed_at IS NULL) AS pending_tasks,
            (SELECT count(*)::text FROM notag_violations) AS notag_violations,
            (SELECT count(*)::text FROM nopin_events) AS nopin_events`,
-      )).rows;
+        )
+      ).rows;
       const row = stats[0] ?? {};
       await interaction.editReply({
         embeds: [
@@ -681,7 +839,10 @@ export const commands: BotCommand[] = defineCommands([
             .setTitle('🗄️ Database statistics')
             .setDescription(
               Object.entries(row)
-                .map(([key, value]) => `${key.replace(/_/g, ' ')}: **${Number(value).toLocaleString('en-US')}**`)
+                .map(
+                  ([key, value]) =>
+                    `${key.replace(/_/g, ' ')}: **${Number(value).toLocaleString('en-US')}**`,
+                )
                 .join('\n'),
             )
             .setFooter({ text: `Fetched ${new Date().toISOString()}` }),

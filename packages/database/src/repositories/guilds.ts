@@ -41,13 +41,21 @@ export class GuildRepository {
          left_at = NULL,
          updated_at = now()
        RETURNING *`,
-      [input.id, input.name ?? 'unknown', input.icon ?? null, input.ownerId ?? null, input.memberCount ?? 0],
+      [
+        input.id,
+        input.name ?? 'unknown',
+        input.icon ?? null,
+        input.ownerId ?? null,
+        input.memberCount ?? 0,
+      ],
     );
     return rows[0] as GuildRow;
   }
 
   async markLeft(guildId: string): Promise<void> {
-    await this.db.query('UPDATE guilds SET left_at = now(), updated_at = now() WHERE id = $1', [guildId]);
+    await this.db.query('UPDATE guilds SET left_at = now(), updated_at = now() WHERE id = $1', [
+      guildId,
+    ]);
   }
 
   async getGuild(guildId: string): Promise<GuildRow | null> {
@@ -57,9 +65,10 @@ export class GuildRepository {
 
   async listGuildsForIds(ids: readonly string[]): Promise<GuildRow[]> {
     if (ids.length === 0) return [];
-    const { rows } = await this.db.query<GuildRow>('SELECT * FROM guilds WHERE id = ANY($1::text[])', [
-      ids as unknown as string[],
-    ]);
+    const { rows } = await this.db.query<GuildRow>(
+      'SELECT * FROM guilds WHERE id = ANY($1::text[])',
+      [ids as unknown as string[]],
+    );
     return rows;
   }
 
@@ -71,7 +80,10 @@ export class GuildRepository {
   }
 
   /** Reads a settings module, falling back to schema defaults when absent. */
-  async getModuleSettings<T extends Record<string, unknown>>(guildId: string, module: ModuleName): Promise<T> {
+  async getModuleSettings<T extends Record<string, unknown>>(
+    guildId: string,
+    module: ModuleName,
+  ): Promise<T> {
     const { rows } = await this.db.query<{ modules: Record<string, unknown> }>(
       'SELECT modules FROM guild_settings WHERE guild_id = $1',
       [guildId],
@@ -80,7 +92,9 @@ export class GuildRepository {
     const values = (stored[module] ?? {}) as Record<string, unknown>;
     const parsed = MODULE_SCHEMAS[module].safeParse(values);
     const defaults = moduleDefaults(module);
-    return (parsed.success ? { ...defaults, ...(parsed.data as Record<string, unknown>) } : defaults) as T;
+    return (
+      parsed.success ? { ...defaults, ...(parsed.data as Record<string, unknown>) } : defaults
+    ) as T;
   }
 
   async getAllModuleSettings(guildId: string): Promise<Record<string, Record<string, unknown>>> {
@@ -92,7 +106,10 @@ export class GuildRepository {
     const out: Record<string, Record<string, unknown>> = {};
     for (const module of Object.keys(MODULE_SCHEMAS) as ModuleName[]) {
       const parsed = MODULE_SCHEMAS[module].safeParse(stored[module] ?? {});
-      out[module] = { ...moduleDefaults(module), ...(parsed.success ? (parsed.data as object) : {}) };
+      out[module] = {
+        ...moduleDefaults(module),
+        ...(parsed.success ? (parsed.data as object) : {}),
+      };
     }
     return out;
   }
@@ -121,7 +138,10 @@ export class GuildRepository {
       if (!parsed.success) {
         throw new Error(
           `invalid ${module} settings: ${parsed.error.issues
-            .map((issue: { path: (string | number)[]; message: string }) => `${issue.path.join('.')} ${issue.message}`)
+            .map(
+              (issue: { path: (string | number)[]; message: string }) =>
+                `${issue.path.join('.')} ${issue.message}`,
+            )
             .join('; ')}`,
         );
       }
@@ -148,7 +168,10 @@ export class GuildRepository {
     });
   }
 
-  async getSettingsHistory(guildId: string, limit = 50): Promise<
+  async getSettingsHistory(
+    guildId: string,
+    limit = 50,
+  ): Promise<
     {
       id: number;
       module: string;

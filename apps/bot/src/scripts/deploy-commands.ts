@@ -54,7 +54,9 @@ async function main(): Promise<void> {
     try {
       const auth = await db.health();
       if (!auth.ok) {
-        logger.warn('database unreachable — deploying built-in commands only', { error: auth.error });
+        logger.warn('database unreachable — deploying built-in commands only', {
+          error: auth.error,
+        });
       } else {
         const rows = await repositories.customCommands.listNamesForRegistration();
         let added = 0;
@@ -63,7 +65,9 @@ async function main(): Promise<void> {
           // guild behaves exactly like production.
           if (!useGlobal && row.scope === 'guild' && row.guild_id !== config.devGuildId) continue;
           if (names.has(row.name)) {
-            logger.warn('skipping custom command that collides with a built-in name', { name: row.name });
+            logger.warn('skipping custom command that collides with a built-in name', {
+              name: row.name,
+            });
             continue;
           }
           names.add(row.name);
@@ -71,7 +75,10 @@ async function main(): Promise<void> {
           payload.push({ name: row.name, description, type: 1 });
           added += 1;
         }
-        logger.info('custom commands merged into registration', { added, scope: useGlobal ? 'global' : 'guild' });
+        logger.info('custom commands merged into registration', {
+          added,
+          scope: useGlobal ? 'global' : 'guild',
+        });
       }
     } catch (error) {
       logger.warn('could not read custom commands from the database', {
@@ -92,7 +99,9 @@ async function main(): Promise<void> {
 
   const target = useGlobal ? 'global' : `guild ${config.devGuildId ?? '(DEV_GUILD_ID not set)'}`;
   if (!useGlobal && !config.devGuildId) {
-    logger.error('DEV_GUILD_ID is required for guild-scoped registration; use --global for production');
+    logger.error(
+      'DEV_GUILD_ID is required for guild-scoped registration; use --global for production',
+    );
     process.exit(1);
   }
 
@@ -120,6 +129,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error(`command deployment failed: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(
+    `command deployment failed: ${error instanceof Error ? error.message : String(error)}`,
+  );
   process.exit(1);
 });

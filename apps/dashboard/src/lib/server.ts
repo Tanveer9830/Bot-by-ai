@@ -7,7 +7,12 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { loadConfig, createOwnerRegistry, type AppConfig, type OwnerRegistry } from '@bot-by-ai/shared';
+import {
+  loadConfig,
+  createOwnerRegistry,
+  type AppConfig,
+  type OwnerRegistry,
+} from '@bot-by-ai/shared';
 import { openDatabase, type Database, type Repositories } from '@bot-by-ai/database';
 
 export const SESSION_COOKIE = 'bbai_session';
@@ -154,7 +159,9 @@ export async function getSession(): Promise<SessionUser | null> {
   return resolveSessionToken(raw);
 }
 
-export async function resolveSessionToken(raw: string | undefined | null): Promise<SessionUser | null> {
+export async function resolveSessionToken(
+  raw: string | undefined | null,
+): Promise<SessionUser | null> {
   if (!raw) return null;
   const { repos } = getDatabase();
   const row = await repos.sessions.findActiveByTokenHash(hashToken(raw));

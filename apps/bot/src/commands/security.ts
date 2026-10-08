@@ -39,12 +39,18 @@ export const commands: BotCommand[] = defineCommands([
       .setName('security')
       .setDescription('Server security: status, lockdown, trusted entities and alerts')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the current security posture'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the current security posture'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('enable')
           .setDescription('Enable the security subsystem')
-          .addBooleanOption((option) => option.setName('lockdown_on_breach').setDescription('Automatically lock down when a nuke threshold is hit'))
+          .addBooleanOption((option) =>
+            option
+              .setName('lockdown_on_breach')
+              .setDescription('Automatically lock down when a nuke threshold is hit'),
+          )
           .addStringOption((option) =>
             option
               .setName('response')
@@ -56,7 +62,9 @@ export const commands: BotCommand[] = defineCommands([
               ),
           ),
       )
-      .addSubcommand((sub) => sub.setName('disable').setDescription('Disable the security subsystem'))
+      .addSubcommand((sub) =>
+        sub.setName('disable').setDescription('Disable the security subsystem'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('lockdown')
@@ -68,8 +76,14 @@ export const commands: BotCommand[] = defineCommands([
               .setRequired(true)
               .addChoices({ name: 'on', value: 'on' }, { name: 'off', value: 'off' }),
           )
-          .addStringOption((option) => option.setName('duration').setDescription('Auto-unlock after e.g. 15m (lockdown on only)'))
-          .addStringOption((option) => option.setName('reason').setDescription('Reason shown in the security log')),
+          .addStringOption((option) =>
+            option
+              .setName('duration')
+              .setDescription('Auto-unlock after e.g. 15m (lockdown on only)'),
+          )
+          .addStringOption((option) =>
+            option.setName('reason').setDescription('Reason shown in the security log'),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -88,11 +102,19 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'list', value: 'list' },
               ),
           )
-          .addUserOption((option) => option.setName('user').setDescription('User (for add/remove user)'))
-          .addRoleOption((option) => option.setName('role').setDescription('Role (for add/remove role)')),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('User (for add/remove user)'),
+          )
+          .addRoleOption((option) =>
+            option.setName('role').setDescription('Role (for add/remove role)'),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('events').setDescription('Show the latest security events'))
-      .addSubcommand((sub) => sub.setName('alerts').setDescription('Show unhandled high-severity alerts')),
+      .addSubcommand((sub) =>
+        sub.setName('events').setDescription('Show the latest security events'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('alerts').setDescription('Show unhandled high-severity alerts'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       const sub = interaction.options.getSubcommand(true);
@@ -112,14 +134,42 @@ export const commands: BotCommand[] = defineCommands([
                   : 'The security subsystem is **disabled**. Enable it with `/security enable`.',
               )
               .addFields(
-                { name: 'Anti-nuke', value: settings.antiNuke.enabled ? `on (${settings.antiNuke.windowMs / 1000}s window, response: ${settings.antiNuke.response})` : 'off', inline: true },
-                { name: 'Anti-raid', value: settings.antiRaid.enabled ? `on (${settings.antiRaid.joinsThreshold} joins / ${settings.antiRaid.joinsWindowMs / 1000}s)` : 'off', inline: true },
-                { name: 'Anti-spam', value: settings.antiSpam.enabled ? `on (${settings.antiSpam.messagesPerWindow} msgs / ${settings.antiSpam.windowMs / 1000}s)` : 'off', inline: true },
-                { name: 'Lockdown', value: settings.lockdown.active ? `ACTIVE ${settings.lockdown.until ? `until <t:${Math.floor(settings.lockdown.until / 1000)}:R>` : ''}` : 'inactive', inline: true },
+                {
+                  name: 'Anti-nuke',
+                  value: settings.antiNuke.enabled
+                    ? `on (${settings.antiNuke.windowMs / 1000}s window, response: ${settings.antiNuke.response})`
+                    : 'off',
+                  inline: true,
+                },
+                {
+                  name: 'Anti-raid',
+                  value: settings.antiRaid.enabled
+                    ? `on (${settings.antiRaid.joinsThreshold} joins / ${settings.antiRaid.joinsWindowMs / 1000}s)`
+                    : 'off',
+                  inline: true,
+                },
+                {
+                  name: 'Anti-spam',
+                  value: settings.antiSpam.enabled
+                    ? `on (${settings.antiSpam.messagesPerWindow} msgs / ${settings.antiSpam.windowMs / 1000}s)`
+                    : 'off',
+                  inline: true,
+                },
+                {
+                  name: 'Lockdown',
+                  value: settings.lockdown.active
+                    ? `ACTIVE ${settings.lockdown.until ? `until <t:${Math.floor(settings.lockdown.until / 1000)}:R>` : ''}`
+                    : 'inactive',
+                  inline: true,
+                },
                 { name: 'Trusted entries', value: String(trusted.length), inline: true },
                 { name: 'Open alerts', value: String(alerts), inline: true },
               )
-              .setFooter({ text: events.rows[0] ? `Last event: ${events.rows[0].kind}` : 'No security events recorded yet' }),
+              .setFooter({
+                text: events.rows[0]
+                  ? `Last event: ${events.rows[0].kind}`
+                  : 'No security events recorded yet',
+              }),
           ],
         });
         return;
@@ -129,7 +179,8 @@ export const commands: BotCommand[] = defineCommands([
 
       if (sub === 'enable') {
         const lockdown = interaction.options.getBoolean('lockdown_on_breach');
-        const response = interaction.options.getString('response') as 'alert' | 'remove_roles' | 'ban' | null;
+        const response = interaction.options.getString('response') as
+          'alert' | 'remove_roles' | 'ban' | null;
         const updated = await services.settings.update<SecuritySettings>(
           guild.id,
           'security',
@@ -156,8 +207,15 @@ export const commands: BotCommand[] = defineCommands([
       }
 
       if (sub === 'disable') {
-        await services.settings.update(guild.id, 'security', { enabled: false }, { actorId: interaction.user.id, source: 'command' });
-        await interaction.reply({ embeds: [warningEmbed('Security subsystem disabled for this server.')] });
+        await services.settings.update(
+          guild.id,
+          'security',
+          { enabled: false },
+          { actorId: interaction.user.id, source: 'command' },
+        );
+        await interaction.reply({
+          embeds: [warningEmbed('Security subsystem disabled for this server.')],
+        });
         return;
       }
 
@@ -166,11 +224,21 @@ export const commands: BotCommand[] = defineCommands([
         await interaction.deferReply();
         if (mode === 'on') {
           const durationRaw = interaction.options.getString('duration');
-          const duration = durationRaw ? (await import('@bot-by-ai/shared')).parseDurationMs(durationRaw) : null;
-          if (durationRaw && duration === null) throw new UserFacingError('Use a duration like `15m` or `1h`.');
-          const reason = interaction.options.getString('reason') ?? `Lockdown requested by ${interaction.user.tag}`;
+          const duration = durationRaw
+            ? (await import('@bot-by-ai/shared')).parseDurationMs(durationRaw)
+            : null;
+          if (durationRaw && duration === null)
+            throw new UserFacingError('Use a duration like `15m` or `1h`.');
+          const reason =
+            interaction.options.getString('reason') ??
+            `Lockdown requested by ${interaction.user.tag}`;
           const minutes = duration ? Math.max(1, Math.round(duration / 60_000)) : 60;
-          const result = await services.security.lockdown(guild, minutes, reason, interaction.user.id);
+          const result = await services.security.lockdown(
+            guild,
+            minutes,
+            reason,
+            interaction.user.id,
+          );
           await interaction.editReply({
             embeds: [
               successEmbed(
@@ -180,7 +248,9 @@ export const commands: BotCommand[] = defineCommands([
           });
         } else {
           const result = await services.security.liftLockdown(guild, interaction.user.id);
-          await interaction.editReply({ embeds: [successEmbed(`🔓 Lockdown lifted — ${result.channels} channel(s) unlocked.`)] });
+          await interaction.editReply({
+            embeds: [successEmbed(`🔓 Lockdown lifted — ${result.channels} channel(s) unlocked.`)],
+          });
         }
         return;
       }
@@ -206,12 +276,17 @@ export const commands: BotCommand[] = defineCommands([
                 )
                 .addFields({
                   name: 'Also configured as settings',
-                  value: [
-                    settings.trustedUserIds.length ? `users: ${settings.trustedUserIds.map((id) => `<@${id}>`).join(', ')}` : null,
-                    settings.trustedRoleIds.length ? `roles: ${settings.trustedRoleIds.map((id) => `<@&${id}>`).join(', ')}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join('\n') || 'none',
+                  value:
+                    [
+                      settings.trustedUserIds.length
+                        ? `users: ${settings.trustedUserIds.map((id) => `<@${id}>`).join(', ')}`
+                        : null,
+                      settings.trustedRoleIds.length
+                        ? `roles: ${settings.trustedRoleIds.map((id) => `<@&${id}>`).join(', ')}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join('\n') || 'none',
                 }),
             ],
             flags: MessageFlags.Ephemeral,
@@ -220,8 +295,10 @@ export const commands: BotCommand[] = defineCommands([
         }
         const user = interaction.options.getUser('user');
         const role = interaction.options.getRole('role');
-        if (action.endsWith('user') && !user) throw new UserFacingError('Provide the `user` option.');
-        if (action.endsWith('role') && !role) throw new UserFacingError('Provide the `role` option.');
+        if (action.endsWith('user') && !user)
+          throw new UserFacingError('Provide the `user` option.');
+        if (action.endsWith('role') && !role)
+          throw new UserFacingError('Provide the `role` option.');
         if (action.startsWith('add')) {
           await services.repos.security.addTrusted({
             guildId: guild.id,
@@ -245,7 +322,11 @@ export const commands: BotCommand[] = defineCommands([
             );
           }
         } else {
-          await services.repos.security.removeTrusted(guild.id, user ? 'user' : 'role', user?.id ?? role?.id ?? '');
+          await services.repos.security.removeTrusted(
+            guild.id,
+            user ? 'user' : 'role',
+            user?.id ?? role?.id ?? '',
+          );
           if (user) {
             await services.settings.update(
               guild.id,
@@ -284,12 +365,19 @@ export const commands: BotCommand[] = defineCommands([
           events.rows,
           (event) =>
             `\`${event.kind}\` **${event.severity}/3** — ${event.description.slice(0, 120)} (<t:${Math.floor(event.created_at.getTime() / 1000)}:R>)`,
-          { title: '🛡️ Security events', pageSize: 12, emptyMessage: 'No security events recorded yet.' },
+          {
+            title: '🛡️ Security events',
+            pageSize: 12,
+            emptyMessage: 'No security events recorded yet.',
+          },
         );
         return;
       }
 
-      const alerts = await services.repos.security.listEvents(guild.id, { minSeverity: 2, limit: 25 });
+      const alerts = await services.repos.security.listEvents(guild.id, {
+        minSeverity: 2,
+        limit: 25,
+      });
       const unhandled = alerts.rows.filter((row) => !row.handled);
       await interaction.reply({
         embeds: [
@@ -316,29 +404,49 @@ export const commands: BotCommand[] = defineCommands([
       .setName('antinuke')
       .setDescription('Configure anti-nuke thresholds and response')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show current anti-nuke thresholds'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show current anti-nuke thresholds'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('thresholds')
           .setDescription('Set how many events within the window are tolerated')
           .addStringOption((option) =>
-            option.setName('target').setDescription('Which event').setRequired(true).addChoices(
-              { name: 'bans', value: 'bans' },
-              { name: 'kicks', value: 'kicks' },
-              { name: 'channel deletes', value: 'channelDeletes' },
-              { name: 'role deletes', value: 'roleDeletes' },
-              { name: 'webhook creates', value: 'webhookCreates' },
-              { name: 'permission changes', value: 'permissionChanges' },
-              { name: 'member role updates', value: 'memberRoleUpdates' },
-            ),
+            option
+              .setName('target')
+              .setDescription('Which event')
+              .setRequired(true)
+              .addChoices(
+                { name: 'bans', value: 'bans' },
+                { name: 'kicks', value: 'kicks' },
+                { name: 'channel deletes', value: 'channelDeletes' },
+                { name: 'role deletes', value: 'roleDeletes' },
+                { name: 'webhook creates', value: 'webhookCreates' },
+                { name: 'permission changes', value: 'permissionChanges' },
+                { name: 'member role updates', value: 'memberRoleUpdates' },
+              ),
           )
-          .addIntegerOption((option) => option.setName('limit').setDescription('Allowed count before triggering').setRequired(true).setMinValue(1).setMaxValue(500)),
+          .addIntegerOption((option) =>
+            option
+              .setName('limit')
+              .setDescription('Allowed count before triggering')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(500),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('window')
           .setDescription('Set the detection window in seconds')
-          .addIntegerOption((option) => option.setName('seconds').setDescription('5-300 seconds').setRequired(true).setMinValue(5).setMaxValue(300)),
+          .addIntegerOption((option) =>
+            option
+              .setName('seconds')
+              .setDescription('5-300 seconds')
+              .setRequired(true)
+              .setMinValue(5)
+              .setMaxValue(300),
+          ),
       )
       .addSubcommand((sub) =>
         sub
@@ -389,10 +497,17 @@ export const commands: BotCommand[] = defineCommands([
         await services.settings.update(
           guild.id,
           'security',
-          { antiNuke: { ...settings.antiNuke, thresholds: { ...settings.antiNuke.thresholds, [target]: limit } } },
+          {
+            antiNuke: {
+              ...settings.antiNuke,
+              thresholds: { ...settings.antiNuke.thresholds, [target]: limit },
+            },
+          },
           { actorId: interaction.user.id, source: 'command' },
         );
-        await interaction.reply({ embeds: [successEmbed(`Threshold for \`${target}\` set to **${limit}** per window.`)] });
+        await interaction.reply({
+          embeds: [successEmbed(`Threshold for \`${target}\` set to **${limit}** per window.`)],
+        });
         return;
       }
       if (sub === 'window') {
@@ -403,14 +518,21 @@ export const commands: BotCommand[] = defineCommands([
           { antiNuke: { ...settings.antiNuke, windowMs: seconds * 1000 } },
           { actorId: interaction.user.id, source: 'command' },
         );
-        await interaction.reply({ embeds: [successEmbed(`Detection window set to **${seconds}s**.`)] });
+        await interaction.reply({
+          embeds: [successEmbed(`Detection window set to **${seconds}s**.`)],
+        });
         return;
       }
-      const action = interaction.options.getString('action', true) as 'alert' | 'remove_roles' | 'ban';
+      const action = interaction.options.getString('action', true) as
+        'alert' | 'remove_roles' | 'ban';
       await services.settings.update(
         guild.id,
         'security',
-        { antiNuke: { ...settings.antiNuke, response: action }, enabled: true, antiNukeEnabled: true },
+        {
+          antiNuke: { ...settings.antiNuke, response: action },
+          enabled: true,
+          antiNukeEnabled: true,
+        },
         { actorId: interaction.user.id, source: 'command' },
       );
       await interaction.reply({
@@ -432,15 +554,39 @@ export const commands: BotCommand[] = defineCommands([
       .setName('antiraid')
       .setDescription('Configure raid protection (join velocity + account age)')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the anti-raid configuration'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the anti-raid configuration'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('config')
           .setDescription('Update anti-raid settings')
-          .addIntegerOption((option) => option.setName('joins').setDescription('Joins allowed in the window').setMinValue(2).setMaxValue(500))
-          .addIntegerOption((option) => option.setName('window_seconds').setDescription('Window length').setMinValue(5).setMaxValue(600))
-          .addIntegerOption((option) => option.setName('min_account_age_days').setDescription('Flag accounts younger than N days').setMinValue(0).setMaxValue(365))
-          .addBooleanOption((option) => option.setName('block_new_accounts').setDescription('Kick accounts younger than the minimum'))
+          .addIntegerOption((option) =>
+            option
+              .setName('joins')
+              .setDescription('Joins allowed in the window')
+              .setMinValue(2)
+              .setMaxValue(500),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('window_seconds')
+              .setDescription('Window length')
+              .setMinValue(5)
+              .setMaxValue(600),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('min_account_age_days')
+              .setDescription('Flag accounts younger than N days')
+              .setMinValue(0)
+              .setMaxValue(365),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName('block_new_accounts')
+              .setDescription('Kick accounts younger than the minimum'),
+          )
           .addStringOption((option) =>
             option
               .setName('response')
@@ -465,9 +611,21 @@ export const commands: BotCommand[] = defineCommands([
               .setTitle('🚪 Anti-raid configuration')
               .addFields(
                 { name: 'Enabled', value: settings.antiRaid.enabled ? 'yes' : 'no', inline: true },
-                { name: 'Join threshold', value: `${settings.antiRaid.joinsThreshold} / ${formatDuration(settings.antiRaid.joinsWindowMs)}`, inline: true },
-                { name: 'Min account age', value: `${settings.antiRaid.minAccountAgeDays} days`, inline: true },
-                { name: 'Block new accounts', value: settings.antiRaid.blockNewAccounts ? 'yes' : 'no', inline: true },
+                {
+                  name: 'Join threshold',
+                  value: `${settings.antiRaid.joinsThreshold} / ${formatDuration(settings.antiRaid.joinsWindowMs)}`,
+                  inline: true,
+                },
+                {
+                  name: 'Min account age',
+                  value: `${settings.antiRaid.minAccountAgeDays} days`,
+                  inline: true,
+                },
+                {
+                  name: 'Block new accounts',
+                  value: settings.antiRaid.blockNewAccounts ? 'yes' : 'no',
+                  inline: true,
+                },
                 { name: 'Response', value: settings.antiRaid.response, inline: true },
               ),
           ],
@@ -500,15 +658,33 @@ export const commands: BotCommand[] = defineCommands([
       .setName('antispam')
       .setDescription('Configure automatic flood protection')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the anti-spam configuration'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the anti-spam configuration'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('config')
           .setDescription('Update anti-spam settings')
-          .addBooleanOption((option) => option.setName('enabled').setDescription('Enable or disable'))
-          .addIntegerOption((option) => option.setName('messages').setDescription('Messages per window').setMinValue(2).setMaxValue(100))
-          .addIntegerOption((option) => option.setName('window_seconds').setDescription('Window length').setMinValue(1).setMaxValue(120))
-          .addStringOption((option) => option.setName('timeout').setDescription('Timeout duration, e.g. 10m (0 disables)')),
+          .addBooleanOption((option) =>
+            option.setName('enabled').setDescription('Enable or disable'),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('messages')
+              .setDescription('Messages per window')
+              .setMinValue(2)
+              .setMaxValue(100),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('window_seconds')
+              .setDescription('Window length')
+              .setMinValue(1)
+              .setMaxValue(120),
+          )
+          .addStringOption((option) =>
+            option.setName('timeout').setDescription('Timeout duration, e.g. 10m (0 disables)'),
+          ),
       ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
@@ -522,8 +698,19 @@ export const commands: BotCommand[] = defineCommands([
               .setTitle('🌊 Anti-spam configuration')
               .addFields(
                 { name: 'Enabled', value: settings.antiSpam.enabled ? 'yes' : 'no', inline: true },
-                { name: 'Rate', value: `${settings.antiSpam.messagesPerWindow} messages / ${formatDuration(settings.antiSpam.windowMs)}`, inline: true },
-                { name: 'Timeout', value: settings.antiSpam.timeoutMs > 0 ? formatDuration(settings.antiSpam.timeoutMs) : 'disabled', inline: true },
+                {
+                  name: 'Rate',
+                  value: `${settings.antiSpam.messagesPerWindow} messages / ${formatDuration(settings.antiSpam.windowMs)}`,
+                  inline: true,
+                },
+                {
+                  name: 'Timeout',
+                  value:
+                    settings.antiSpam.timeoutMs > 0
+                      ? formatDuration(settings.antiSpam.timeoutMs)
+                      : 'disabled',
+                  inline: true,
+                },
               ),
           ],
         });
@@ -540,10 +727,16 @@ export const commands: BotCommand[] = defineCommands([
       if (timeoutRaw) {
         const { parseDurationMs } = await import('@bot-by-ai/shared');
         const parsed = parseDurationMs(timeoutRaw);
-        if (parsed === null) throw new UserFacingError('Use a timeout like `10m` or `1h` (or `0` to disable).');
+        if (parsed === null)
+          throw new UserFacingError('Use a timeout like `10m` or `1h` (or `0` to disable).');
         patch.timeoutMs = parsed;
       }
-      await services.settings.update(guild.id, 'security', { antiSpam: patch as never }, { actorId: interaction.user.id, source: 'command' });
+      await services.settings.update(
+        guild.id,
+        'security',
+        { antiSpam: patch as never },
+        { actorId: interaction.user.id, source: 'command' },
+      );
       await interaction.reply({ embeds: [successEmbed('Anti-spam configuration updated.')] });
     },
   },
@@ -553,20 +746,28 @@ export const commands: BotCommand[] = defineCommands([
       .setName('notag')
       .setDescription('Protect members from unwanted mentions')
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) => sub.setName('setup').setDescription('Enable mention protection and choose the action'))
+      .addSubcommand((sub) =>
+        sub.setName('setup').setDescription('Enable mention protection and choose the action'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('protect')
           .setDescription('Add a protected user')
-          .addUserOption((option) => option.setName('user').setDescription('User to protect').setRequired(true)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('User to protect').setRequired(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('unprotect')
           .setDescription('Remove protection from a user')
-          .addUserOption((option) => option.setName('user').setDescription('User').setRequired(true)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('User').setRequired(true),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show protected users and settings'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show protected users and settings'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('exempt')
@@ -576,12 +777,19 @@ export const commands: BotCommand[] = defineCommands([
               .setName('type')
               .setDescription('What to exempt')
               .setRequired(true)
-              .addChoices({ name: 'user', value: 'user' }, { name: 'role', value: 'role' }, { name: 'channel', value: 'channel' }),
+              .addChoices(
+                { name: 'user', value: 'user' },
+                { name: 'role', value: 'role' },
+                { name: 'channel', value: 'channel' },
+              ),
           )
           .addUserOption((option) => option.setName('user').setDescription('User (type: user)'))
           .addRoleOption((option) => option.setName('role').setDescription('Role (type: role)'))
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Channel (type: channel)').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Channel (type: channel)')
+              .addChannelTypes(ChannelType.GuildText),
           ),
       )
       .addSubcommand((sub) =>
@@ -600,12 +808,29 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'kick the author', value: 'kick' },
               ),
           )
-          .addBooleanOption((option) => option.setName('allow_replies').setDescription('Allow mentions inside replies'))
-          .addBooleanOption((option) => option.setName('allow_self_mention').setDescription('Allow users to mention themselves'))
-          .addIntegerOption((option) => option.setName('escalation_threshold').setDescription('Repeat offences before escalation').setMinValue(2).setMaxValue(20))
-          .addStringOption((option) => option.setName('timeout_duration').setDescription('Timeout length, e.g. 10m'))
+          .addBooleanOption((option) =>
+            option.setName('allow_replies').setDescription('Allow mentions inside replies'),
+          )
+          .addBooleanOption((option) =>
+            option
+              .setName('allow_self_mention')
+              .setDescription('Allow users to mention themselves'),
+          )
+          .addIntegerOption((option) =>
+            option
+              .setName('escalation_threshold')
+              .setDescription('Repeat offences before escalation')
+              .setMinValue(2)
+              .setMaxValue(20),
+          )
+          .addStringOption((option) =>
+            option.setName('timeout_duration').setDescription('Timeout length, e.g. 10m'),
+          )
           .addChannelOption((option) =>
-            option.setName('log_channel').setDescription('Channel for violation logs').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('log_channel')
+              .setDescription('Channel for violation logs')
+              .addChannelTypes(ChannelType.GuildText),
           ),
       )
       .addSubcommand((sub) => sub.setName('logs').setDescription('Show recent no-tag violations')),
@@ -619,7 +844,11 @@ export const commands: BotCommand[] = defineCommands([
         const updated = await services.settings.update<NoTagSettings>(
           guild.id,
           'notag',
-          { enabled: true, action: settings.action === 'log' ? 'warn' : settings.action, deleteMessage: true },
+          {
+            enabled: true,
+            action: settings.action === 'log' ? 'warn' : settings.action,
+            deleteMessage: true,
+          },
           { actorId: interaction.user.id, source: 'command' },
         );
         await interaction.reply({
@@ -667,23 +896,52 @@ export const commands: BotCommand[] = defineCommands([
               .addFields(
                 { name: 'Enabled', value: settings.enabled ? 'yes' : 'no', inline: true },
                 { name: 'Action', value: settings.action, inline: true },
-                { name: 'Escalation after', value: `${settings.escalationThreshold} violations`, inline: true },
-                { name: 'Allow replies', value: settings.allowReplies ? 'yes' : 'no', inline: true },
-                { name: 'Allow self-mention', value: settings.allowSelfMention ? 'yes' : 'no', inline: true },
-                { name: 'Log channel', value: settings.logChannelId ? `<#${settings.logChannelId}>` : 'default security log', inline: true },
+                {
+                  name: 'Escalation after',
+                  value: `${settings.escalationThreshold} violations`,
+                  inline: true,
+                },
+                {
+                  name: 'Allow replies',
+                  value: settings.allowReplies ? 'yes' : 'no',
+                  inline: true,
+                },
+                {
+                  name: 'Allow self-mention',
+                  value: settings.allowSelfMention ? 'yes' : 'no',
+                  inline: true,
+                },
+                {
+                  name: 'Log channel',
+                  value: settings.logChannelId
+                    ? `<#${settings.logChannelId}>`
+                    : 'default security log',
+                  inline: true,
+                },
                 {
                   name: `Protected users (${settings.protectedUserIds.length})`,
-                  value: settings.protectedUserIds.slice(0, 30).map((id) => `<@${id}>`).join(' ') || 'none',
+                  value:
+                    settings.protectedUserIds
+                      .slice(0, 30)
+                      .map((id) => `<@${id}>`)
+                      .join(' ') || 'none',
                 },
                 {
                   name: 'Exemptions',
-                  value: [
-                    settings.exemptUserIds.length ? `users: ${settings.exemptUserIds.map((id) => `<@${id}>`).join(' ')}` : null,
-                    settings.exemptRoleIds.length ? `roles: ${settings.exemptRoleIds.map((id) => `<@&${id}>`).join(' ')}` : null,
-                    settings.exemptChannelIds.length ? `channels: ${settings.exemptChannelIds.map((id) => `<#${id}>`).join(' ')}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join('\n') || 'none',
+                  value:
+                    [
+                      settings.exemptUserIds.length
+                        ? `users: ${settings.exemptUserIds.map((id) => `<@${id}>`).join(' ')}`
+                        : null,
+                      settings.exemptRoleIds.length
+                        ? `roles: ${settings.exemptRoleIds.map((id) => `<@&${id}>`).join(' ')}`
+                        : null,
+                      settings.exemptChannelIds.length
+                        ? `channels: ${settings.exemptChannelIds.map((id) => `<#${id}>`).join(' ')}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join('\n') || 'none',
                 },
               ),
           ],
@@ -703,8 +961,14 @@ export const commands: BotCommand[] = defineCommands([
             : type === 'role'
               ? { exemptRoleIds: [...new Set([...settings.exemptRoleIds, target.id])] }
               : { exemptChannelIds: [...new Set([...settings.exemptChannelIds, target.id])] };
-        await services.settings.update(guild.id, 'notag', patch, { actorId: interaction.user.id, source: 'command' });
-        await interaction.reply({ embeds: [successEmbed(`Added an exemption for ${type} \`${target.id}\`.`)], flags: MessageFlags.Ephemeral });
+        await services.settings.update(guild.id, 'notag', patch, {
+          actorId: interaction.user.id,
+          source: 'command',
+        });
+        await interaction.reply({
+          embeds: [successEmbed(`Added an exemption for ${type} \`${target.id}\`.`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       if (sub === 'settings') {
@@ -726,12 +990,17 @@ export const commands: BotCommand[] = defineCommands([
           if (parsed === null) throw new UserFacingError('Use a duration like `10m`.');
           patch.timeoutMs = parsed;
         }
-        await services.settings.update(guild.id, 'notag', patch, { actorId: interaction.user.id, source: 'command' });
+        await services.settings.update(guild.id, 'notag', patch, {
+          actorId: interaction.user.id,
+          source: 'command',
+        });
         await interaction.reply({ embeds: [successEmbed('No-tag settings updated.')] });
         return;
       }
       const violations = await services.repos.security.listEvents(guild.id, { limit: 50 });
-      const noTagRows = violations.rows.filter((row) => row.kind === 'notag' || row.description.includes('No-tag'));
+      const noTagRows = violations.rows.filter(
+        (row) => row.kind === 'notag' || row.description.includes('No-tag'),
+      );
       await interaction.reply({
         embeds: [
           baseEmbed(COLORS.primary)
@@ -760,21 +1029,31 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('protect')
           .setDescription('Protect a user’s messages from being pinned by others')
-          .addUserOption((option) => option.setName('user').setDescription('User').setRequired(true)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('User').setRequired(true),
+          ),
       )
       .addSubcommand((sub) =>
         sub
           .setName('unprotect')
           .setDescription('Stop protecting a user’s messages')
-          .addUserOption((option) => option.setName('user').setDescription('User').setRequired(true)),
+          .addUserOption((option) =>
+            option.setName('user').setDescription('User').setRequired(true),
+          ),
       )
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the pin protection configuration'))
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show the pin protection configuration'),
+      )
       .addSubcommand((sub) =>
         sub
           .setName('exempt')
           .setDescription('Exempt a channel from pin monitoring')
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Channel').setRequired(true).addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Channel')
+              .setRequired(true)
+              .addChannelTypes(ChannelType.GuildText),
           ),
       )
       .addSubcommand((sub) =>
@@ -792,11 +1071,22 @@ export const commands: BotCommand[] = defineCommands([
                 { name: 'timeout the actor', value: 'timeout' },
               ),
           )
-          .addBooleanOption((option) => option.setName('allow_self_pin').setDescription('Allow the author to pin their own message'))
-          .addBooleanOption((option) => option.setName('allow_moderators').setDescription('Allow members with Manage Messages'))
-          .addStringOption((option) => option.setName('timeout_duration').setDescription('Timeout length when action=timeout'))
+          .addBooleanOption((option) =>
+            option
+              .setName('allow_self_pin')
+              .setDescription('Allow the author to pin their own message'),
+          )
+          .addBooleanOption((option) =>
+            option.setName('allow_moderators').setDescription('Allow members with Manage Messages'),
+          )
+          .addStringOption((option) =>
+            option.setName('timeout_duration').setDescription('Timeout length when action=timeout'),
+          )
           .addChannelOption((option) =>
-            option.setName('alert_channel').setDescription('Channel for pin alerts').addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('alert_channel')
+              .setDescription('Channel for pin alerts')
+              .addChannelTypes(ChannelType.GuildText),
           ),
       )
       .addSubcommand((sub) => sub.setName('logs').setDescription('Show recent pin events')),
@@ -834,7 +1124,13 @@ export const commands: BotCommand[] = defineCommands([
           { actorId: interaction.user.id, source: 'command' },
         );
         await interaction.reply({
-          embeds: [successEmbed(sub === 'protect' ? `<@${user.id}> is now pin-protected.` : `Pin protection removed for <@${user.id}>.`)],
+          embeds: [
+            successEmbed(
+              sub === 'protect'
+                ? `<@${user.id}> is now pin-protected.`
+                : `Pin protection removed for <@${user.id}>.`,
+            ),
+          ],
         });
         return;
       }
@@ -846,9 +1142,23 @@ export const commands: BotCommand[] = defineCommands([
               .addFields(
                 { name: 'Enabled', value: settings.enabled ? 'yes' : 'no', inline: true },
                 { name: 'Action', value: settings.action, inline: true },
-                { name: 'Allow self-pin', value: settings.allowSelfPin ? 'yes' : 'no', inline: true },
-                { name: 'Allow moderators', value: settings.allowModerators ? 'yes' : 'no', inline: true },
-                { name: 'Alert channel', value: settings.alertChannelId ? `<#${settings.alertChannelId}>` : 'default security log', inline: true },
+                {
+                  name: 'Allow self-pin',
+                  value: settings.allowSelfPin ? 'yes' : 'no',
+                  inline: true,
+                },
+                {
+                  name: 'Allow moderators',
+                  value: settings.allowModerators ? 'yes' : 'no',
+                  inline: true,
+                },
+                {
+                  name: 'Alert channel',
+                  value: settings.alertChannelId
+                    ? `<#${settings.alertChannelId}>`
+                    : 'default security log',
+                  inline: true,
+                },
                 {
                   name: `Protected users (${settings.protectedUserIds.length})`,
                   value: settings.protectedUserIds.map((id) => `<@${id}>`).join(' ') || 'none',
@@ -870,7 +1180,10 @@ export const commands: BotCommand[] = defineCommands([
           { exemptChannelIds: [...new Set([...settings.exemptChannelIds, channel.id])] },
           { actorId: interaction.user.id, source: 'command' },
         );
-        await interaction.reply({ embeds: [successEmbed(`Pin monitoring exempt in <#${channel.id}>.`)], flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          embeds: [successEmbed(`Pin monitoring exempt in <#${channel.id}>.`)],
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       if (sub === 'settings') {
@@ -890,12 +1203,18 @@ export const commands: BotCommand[] = defineCommands([
           if (parsed === null) throw new UserFacingError('Use a duration like `10m`.');
           patch.timeoutMs = parsed;
         }
-        await services.settings.update(guild.id, 'nopin', patch, { actorId: interaction.user.id, source: 'command' });
+        await services.settings.update(guild.id, 'nopin', patch, {
+          actorId: interaction.user.id,
+          source: 'command',
+        });
         await interaction.reply({ embeds: [successEmbed('Pin monitoring settings updated.')] });
         return;
       }
       const events = await services.repos.security.findLatestEvent(guild.id, 'nopin');
-      const recent = await services.repos.security.listEvents(guild.id, { kinds: ['nopin'], limit: 25 });
+      const recent = await services.repos.security.listEvents(guild.id, {
+        kinds: ['nopin'],
+        limit: 25,
+      });
       await interaction.reply({
         embeds: [
           baseEmbed(COLORS.primary)
@@ -925,11 +1244,15 @@ export const commands: BotCommand[] = defineCommands([
         sub
           .setName('on')
           .setDescription('Lock the server down immediately for a period')
-          .addStringOption((option) => option.setName('duration').setDescription('e.g. 15m (default 60m)'))
+          .addStringOption((option) =>
+            option.setName('duration').setDescription('e.g. 15m (default 60m)'),
+          )
           .addStringOption((option) => option.setName('reason').setDescription('Reason')),
       )
       .addSubcommand((sub) => sub.setName('off').setDescription('Lift an active lockdown'))
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show whether a lockdown is active')),
+      .addSubcommand((sub) =>
+        sub.setName('status').setDescription('Show whether a lockdown is active'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       requireSecurityAccess(interaction);
@@ -956,15 +1279,27 @@ export const commands: BotCommand[] = defineCommands([
         const { parseDurationMs } = await import('@bot-by-ai/shared');
         const duration = durationRaw ? parseDurationMs(durationRaw) : null;
         const minutes = duration ? Math.max(1, Math.round(duration / 60_000)) : 60;
-        const reason = interaction.options.getString('reason') ?? `Raid mode enabled by ${interaction.user.tag}`;
-        const result = await services.security.lockdown(guild, minutes, reason, interaction.user.id);
+        const reason =
+          interaction.options.getString('reason') ?? `Raid mode enabled by ${interaction.user.tag}`;
+        const result = await services.security.lockdown(
+          guild,
+          minutes,
+          reason,
+          interaction.user.id,
+        );
         await interaction.editReply({
-          embeds: [successEmbed(`🚨 Raid mode active — ${result.channels} channel(s) locked until <t:${Math.floor(result.until / 1000)}:R>.`)],
+          embeds: [
+            successEmbed(
+              `🚨 Raid mode active — ${result.channels} channel(s) locked until <t:${Math.floor(result.until / 1000)}:R>.`,
+            ),
+          ],
         });
         return;
       }
       const result = await services.security.liftLockdown(guild, interaction.user.id);
-      await interaction.editReply({ embeds: [successEmbed(`Raid mode disabled — ${result.channels} channel(s) unlocked.`)] });
+      await interaction.editReply({
+        embeds: [successEmbed(`Raid mode disabled — ${result.channels} channel(s) unlocked.`)],
+      });
     },
   },
   {
@@ -978,16 +1313,27 @@ export const commands: BotCommand[] = defineCommands([
           .setName('channel')
           .setDescription('Choose the security log channel')
           .addChannelOption((option) =>
-            option.setName('channel').setDescription('Channel').setRequired(true).addChannelTypes(ChannelType.GuildText),
+            option
+              .setName('channel')
+              .setDescription('Channel')
+              .setRequired(true)
+              .addChannelTypes(ChannelType.GuildText),
           ),
       )
-      .addSubcommand((sub) => sub.setName('disable').setDescription('Stop sending security alerts')),
+      .addSubcommand((sub) =>
+        sub.setName('disable').setDescription('Stop sending security alerts'),
+      ),
     async execute({ interaction, services }: CommandContext) {
       const guild = guildOf(interaction);
       requireSecurityAccess(interaction);
       const sub = interaction.options.getSubcommand(true);
       if (sub === 'disable') {
-        await services.settings.update(guild.id, 'security', { alertChannelId: null }, { actorId: interaction.user.id, source: 'command' });
+        await services.settings.update(
+          guild.id,
+          'security',
+          { alertChannelId: null },
+          { actorId: interaction.user.id, source: 'command' },
+        );
         await interaction.reply({ embeds: [warningEmbed('Security alerts disabled.')] });
         return;
       }

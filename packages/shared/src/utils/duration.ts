@@ -31,7 +31,9 @@ const UNIT_SECONDS: Record<string, number> = {
 };
 
 export function parseDurationMs(input: string): number | null {
-  const raw = String(input ?? '').trim().toLowerCase();
+  const raw = String(input ?? '')
+    .trim()
+    .toLowerCase();
   if (!raw) return null;
   if (/^\d+$/.test(raw)) return Number(raw) * 1000;
 

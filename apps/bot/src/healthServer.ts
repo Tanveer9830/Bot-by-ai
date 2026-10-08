@@ -46,14 +46,19 @@ export function startHealthServer(options: HealthServerOptions): Server {
     if (url.pathname === '/metrics' || url.pathname === '/metrics.txt') {
       const token = process.env.HEALTH_TOKEN;
       if (token) {
-        const provided = req.headers.authorization?.replace(/^Bearer\s+/i, '') ?? url.searchParams.get('token');
+        const provided =
+          req.headers.authorization?.replace(/^Bearer\s+/i, '') ?? url.searchParams.get('token');
         if (provided !== token) {
           send(401, JSON.stringify({ error: 'unauthorized' }));
           return;
         }
       }
       const snapshot = await status.snapshot();
-      const payload = { ...snapshot, commandCount: registrySize(), features: statusFeatures(config) };
+      const payload = {
+        ...snapshot,
+        commandCount: registrySize(),
+        features: statusFeatures(config),
+      };
       if (url.pathname === '/metrics.txt') {
         const lines = [
           `# HELP bot_uptime_seconds Process uptime`,
@@ -80,7 +85,10 @@ export function startHealthServer(options: HealthServerOptions): Server {
   });
 
   server.listen(port, '0.0.0.0', () => {
-    logger.info('health server listening', { port, endpoints: ['/healthz', '/readyz', '/metrics'] });
+    logger.info('health server listening', {
+      port,
+      endpoints: ['/healthz', '/readyz', '/metrics'],
+    });
   });
   server.on('error', (error) => logger.warn('health server error', { error: error.message }));
   return server;

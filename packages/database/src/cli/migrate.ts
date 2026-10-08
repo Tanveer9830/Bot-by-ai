@@ -10,7 +10,9 @@ async function main(): Promise<void> {
   const command = process.argv[2] ?? 'up';
   const url = process.env.DATABASE_URL;
   if (!url) {
-    console.error('DATABASE_URL is required (see .env.example). It has not been printed for safety.');
+    console.error(
+      'DATABASE_URL is required (see .env.example). It has not been printed for safety.',
+    );
     process.exit(1);
   }
   const db = createDatabase({

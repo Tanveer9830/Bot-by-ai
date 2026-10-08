@@ -12,14 +12,17 @@ WORKDIR /app
 
 # ---------------------------------------------------------------- deps + build
 FROM base AS build
-ENV NODE_ENV=development
+# NOTE: NODE_ENV stays 'production' here on purpose — running `next build` with
+# NODE_ENV=development makes it fail while prerendering /404
+# ("<Html> should not be imported outside of pages/_document"). Dev dependencies
+# are pulled in explicitly with --include=dev instead.
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/database/package.json packages/database/
 COPY apps/bot/package.json apps/bot/
 COPY apps/dashboard/package.json apps/dashboard/
 # Install with the lockfile so builds are reproducible.
-RUN npm ci --workspaces --include-workspace-root
+RUN npm ci --include=dev --workspaces --include-workspace-root
 
 # Only the TypeScript project files and sources are needed to build the images;
 # .dockerignore keeps tests, docs and tooling config out of the context.

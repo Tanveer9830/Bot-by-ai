@@ -5,6 +5,10 @@ const nextConfig = {
   transpilePackages: ['@bot-by-ai/shared', '@bot-by-ai/database'],
   output: 'standalone',
   poweredByHeader: false,
+  // Types are still checked during the build; linting is handled once for the
+  // whole monorepo by `npm run lint` (and CI), so Next's internal pass is skipped
+  // to keep image builds fast and to avoid a second, weaker rule set.
+  eslint: { ignoreDuringBuilds: true },
   async headers() {
     return [
       {

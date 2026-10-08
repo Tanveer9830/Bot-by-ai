@@ -1,0 +1,47 @@
+{
+  "name": "bot-by-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Modular Discord bot, security suite and web dashboard",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @bot-by-ai/shared && npm run build -w @bot-by-ai/database && npm run build -w @bot-by-ai/bot && npm run build -w @bot-by-ai/dashboard",
+    "build:packages": "npm run build -w @bot-by-ai/shared && npm run build -w @bot-by-ai/database",
+    "dev:bot": "npm run dev -w @bot-by-ai/bot",
+    "dev:dashboard": "npm run dev -w @bot-by-ai/dashboard",
+    "deploy:commands": "npm run deploy:commands -w @bot-by-ai/bot",
+    "migrate": "npm run migrate -w @bot-by-ai/database",
+    "migrate:status": "npm run migrate:status -w @bot-by-ai/database",
+    "seed": "npm run seed -w @bot-by-ai/database",
+    "typecheck": "tsc -b tsconfig.build.json --pretty false",
+    "typecheck:all": "npm run typecheck -w @bot-by-ai/shared && npm run typecheck -w @bot-by-ai/database && npm run typecheck -w @bot-by-ai/bot && npm run typecheck -w @bot-by-ai/dashboard",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml}\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "ci": "npm run format:check && npm run lint && npm run typecheck:all && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.30.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.36.0",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
+  }
+}

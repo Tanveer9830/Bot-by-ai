@@ -1,0 +1,28 @@
+{
+  "name": "@bot-by-ai/database",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "tsx src/cli/migrate.ts up",
+    "migrate:status": "tsx src/cli/migrate.ts status",
+    "seed": "tsx src/cli/seed.ts"
+  },
+  "dependencies": {
+    "@bot-by-ai/shared": "*",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.4"
+  }
+}

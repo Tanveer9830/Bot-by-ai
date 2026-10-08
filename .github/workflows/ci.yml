@@ -105,5 +105,14 @@ jobs:
           tags: bot-by-ai-dashboard:ci
           cache-from: type=gha
 
-      - name: Validate compose file
+      # Compose resolves `env_file: [.env]`, so a checked-out tree without one
+      # cannot be validated. Copying .env.example doubles as a test that the
+      # documented template satisfies every variable the stack references.
+      - name: Prepare environment file
+        run: cp .env.example .env
+
+      - name: Validate compose file (default stack)
         run: docker compose -f docker-compose.yml config --quiet
+
+      - name: Validate compose file (music profiles)
+        run: docker compose --profile music --profile music-spotify -f docker-compose.yml config --quiet

@@ -293,9 +293,13 @@ CREATE TABLE IF NOT EXISTS shop_items (
   stock       INTEGER,
   enabled     BOOLEAN NOT NULL DEFAULT TRUE,
   created_by  TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (guild_id, lower(name))
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- PostgreSQL does not allow expressions inside a table-level UNIQUE constraint,
+-- so case-insensitive uniqueness is enforced with a unique index. This is also
+-- what `INSERT ... ON CONFLICT (guild_id, lower(name))` requires.
+CREATE UNIQUE INDEX IF NOT EXISTS shop_items_guild_name_idx
+  ON shop_items (guild_id, lower(name));
 
 CREATE TABLE IF NOT EXISTS inventory (
   id          BIGSERIAL PRIMARY KEY,

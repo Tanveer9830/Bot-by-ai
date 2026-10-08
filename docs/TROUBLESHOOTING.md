@@ -111,13 +111,20 @@ commands run. The UI says "unavailable" rather than inventing data.
 ## Tests
 
 **`7 tests skipped` in `npm test`**
-`tests/integration/database.test.ts` needs `TEST_DATABASE_URL`. Without it those
-tests skip (never reported as passing). Locally:
+`tests/integration/database.test.ts` needs a database. Without one those tests skip
+(never reported as passing). Two ways to run them:
 
 ```bash
+npm run test:db                       # no PostgreSQL needed: PGlite (WASM) on a loopback port
+# or against your own server:
 createdb botbyai_test
-TEST_DATABASE_URL=postgres://localhost/botbyai_test npm test
+TEST_DATABASE_URL=postgres://localhost/botbyai_test npx vitest run tests/integration
 ```
+
+**`migration 0001_init.sql failed: syntax error`**
+The SQL is validated in CI. If you edited a migration, check it against a real
+engine before pushing: `npm run test:db` runs every migration file. Remember that
+already-applied migrations are checksummed — add a new file instead of editing one.
 
 **Prettier/ESLint fails in CI but not locally**
 Run the same commands CI does: `npm run format` (writes), `npm run lint`,

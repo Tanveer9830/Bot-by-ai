@@ -32,9 +32,12 @@
     "test:coverage": "vitest run --coverage",
     "ci": "npm run format:check && npm run lint && npm run typecheck:all && npm run test && npm run build",
     "commands:count": "node scripts/count-commands.mjs",
-    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
+    "test:db": "node scripts/test-db.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
     "@types/node": "^22.15.3",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.30.0",

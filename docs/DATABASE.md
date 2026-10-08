@@ -21,6 +21,7 @@ export DATABASE_URL=postgres://user:pass@localhost:5432/botbyai
 npm run migrate           # apply pending
 npm run migrate:status    # list applied/pending + checksum drift
 npm run seed              # shop items, achievements and other reference rows
+npm run test:db           # validate every migration file against a real engine (PGlite)
 ```
 
 Behaviour worth knowing:

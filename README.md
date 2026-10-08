@@ -153,9 +153,25 @@ Details: **[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
 ## Testing
 
 ```bash
-npm test              # 52 tests pass, 7 integration tests skip without a database
+npm test              # 43 unit + 9 integration tests
+npm run test:db       # boots PGlite (PostgreSQL in WASM) and runs the 7 database tests
 npm run test:coverage
 ```
+
+Verified locally for this repository:
+
+```
+tests/unit/owner-auth.test.ts                 8 passed
+tests/unit/template-and-validation.test.ts   13 passed
+tests/unit/economy-and-xp.test.ts            22 passed
+tests/integration/command-registry.test.ts    9 passed
+tests/integration/database.test.ts            7 passed   (via npm run test:db)
+```
+
+`npm run test:db` starts a real PostgreSQL engine compiled to WebAssembly, points
+`TEST_DATABASE_URL` at it and runs the database suite — useful where Docker is not
+available. CI uses a `postgres:16` service container instead. Without either, those
+7 tests **skip** (they are never reported as passing).
 
 - Unit (43): owner auth, template/mention safety, custom-command schema, economy +
   XP maths.
@@ -163,8 +179,8 @@ npm run test:coverage
   issues, owner-only flags, unique names.
 - PostgreSQL integration (7): migrations, table set, transactional economy
   (overdraft rejected, idempotency replayed), case numbering, sessions, global vs
-  guild custom commands. These require `TEST_DATABASE_URL` and are **skipped**
-  otherwise — they are never reported as passing without a database.
+  guild custom commands. Run them with `npm run test:db` (PGlite) or with
+  `TEST_DATABASE_URL` pointing at a real server; otherwise they skip.
 
 ## Docker
 

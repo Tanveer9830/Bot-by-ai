@@ -21,12 +21,12 @@ COPY apps/dashboard/package.json apps/dashboard/
 # Install with the lockfile so builds are reproducible.
 RUN npm ci --workspaces --include-workspace-root
 
-COPY tsconfig.tests.json ./
+# Only the TypeScript project files and sources are needed to build the images;
+# .dockerignore keeps tests, docs and tooling config out of the context.
+COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps apps
 COPY database database
-COPY scripts scripts
-COPY .prettierrc.json eslint.config.js vitest.config.ts ./
 RUN npm run build:packages \
  && npm run build -w @bot-by-ai/bot \
  && npm run build -w @bot-by-ai/dashboard

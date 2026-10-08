@@ -19,6 +19,8 @@ COPY packages/database/package.json packages/database/
 COPY apps/bot/package.json apps/bot/
 COPY apps/dashboard/package.json apps/dashboard/
 RUN npm ci --workspaces --include-workspace-root
+# See Dockerfile: tests/docs/tooling stay out of the context via .dockerignore.
+COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps apps
 COPY database database
